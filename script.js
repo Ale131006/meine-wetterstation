@@ -1,36 +1,48 @@
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPyrIYSN61zJY9_IUOwtNhRSF1l32Xo2UQjuDYGl3wIMwHjqPdXiIhvBsFhDu6wtyTnSN6qufe1kyA/pub?output=csv';
-
-async function loadAndDraw() {
-  const res  = await fetch(CSV_URL);
-  const text = await res.text();
-  const rows = text.trim().split('\n').slice(1); // Kopfzeile entfernen
-
-  const labels = [], temps = [];
-  rows.forEach(line => {
-    const [ts, temp] = line.split(',');
-    labels.push(ts.slice(11));        // nur Uhrzeit HH:MM:SS
-    temps.push(parseFloat(temp));     // Temperatur
-  });
-
-  new Chart(document.getElementById('tempChart'), {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Temperatur (°C)',
-        data: temps,
-        tension: 0.4
-      }]
-    },
-    options: {
-      scales: {
-        x: { display: true },
-        y: { beginAtZero: false }
-      }
-    }
-  });
+let CSV_URL = window.CSV_URL;
+if (!CSV_URL) {
+  CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRPyrIYSN61zJY9_IUOwtNhRSF1l32Xo2UQjuDYGl3wIMwHjqPdXiIhvBsFhDu6wtyTnSN6qufe1kyA/pub?output=csv';
+  window.CSV_URL = CSV_URL;
 }
 
-// Erstmal zeichnen, dann alle 5 Minuten aktualisieren
-loadAndDraw();
-setInterval(loadAndDraw, 5 * 60 * 1000);
+//fetch live Daten
+
+// Lädt CSV-Daten und gibt sie als Array zurück
+async function loadData() {
+  const res = await fetch(CSV_URL);
+  const text = await res.text();
+  const lines = text.trim().split('\n');
+  lines.shift();
+  const data = lines.map(line => {
+    const [timestamp, temperature, humidity, pressure, light] = line.split(',');
+    return { timestamp, temperature: parseFloat(temperature), humidity: parseFloat(humidity), pressure: parseFloat(pressure), light: parseFloat(light) };
+  });
+  console.log('Loaded data:', data);
+  return data;
+}
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  const liveTab = document.getElementById('live-tab');
+  const historyTab = document.getElementById('history-tab');
+  const liveSection = document.getElementById('live-section');
+  const historySection = document.getElementById('history-section');
+
+  liveTab.addEventListener('click', () => {
+    liveTab.classList.add('active');
+    historyTab.classList.remove('active');
+    liveSection.classList.remove('hidden');
+    historySection.classList.add('hidden');
+  });
+
+  historyTab.addEventListener('click', () => {
+    historyTab.classList.add('active');
+    liveTab.classList.remove('active');
+    historySection.classList.remove('hidden');
+    liveSection.classList.add('hidden');
+  });
+
+  // TODO: Fetch und Render Live-Daten
+  // TODO: Fetch und Render Historische Daten
+  // TODO: Aufbau des Charts mit Chart.js oder ähnlichem
+});
+
