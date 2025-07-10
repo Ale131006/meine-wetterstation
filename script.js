@@ -20,6 +20,8 @@ async function loadData() {
   return data;
 }
 
+loadData();
+
 
 document.addEventListener('DOMContentLoaded', () => {
   const liveTab = document.getElementById('live-tab');
