@@ -43,7 +43,6 @@ section#history-section { background: #fff; padding: 1rem; border-radius: 0.5rem
 
 
 
-
 /* Karten-Container */
 .cards-container {
   background: rgb(233, 240, 255);
@@ -166,4 +165,41 @@ section#history-section { background: #fff; padding: 1rem; border-radius: 0.5rem
   border-radius: 0.25rem;
   white-space: nowrap;
   font-size: 0.8rem;
+}
+
+
+
+/* ====== RESPONSIVE LAYOUT ====== */
+@media (max-width: 1024px) {
+  /* Auf Tablets zwei Karten pro Reihe */
+  .cards-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Header untereinander statt nebeneinander */
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  /* Tabs umbrechen, aber Styling bleibt */
+  .tabs {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  /* Auf Smartphones nur eine Karte pro Reihe */
+  .cards-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Chart-Header stapeln, Background bleibt dank keiner globalen Änderung */
+  .chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
 }
