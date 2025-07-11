@@ -43,6 +43,14 @@ document.addEventListener('DOMContentLoaded', () => {
     liveSection.classList.add('hidden');
   });
 
+  if (window.GPS_DATA) {
+    document.getElementById('location').textContent = `Ort: ${window.GPS_DATA.location}`;
+    document.getElementById('altitude').textContent = `Höhe: ${window.GPS_DATA.altitude} m`;
+    const coordsSpan = document.getElementById('coords');
+    coordsSpan.title = `Lat: ${window.GPS_DATA.latitude}, Lon: ${window.GPS_DATA.longitude}, Höhe: ${window.GPS_DATA.altitude} m`;
+    coordsSpan.classList.add('tooltip');
+  }
+
   // TODO: Fetch und Render Live-Daten
   // TODO: Fetch und Render Historische Daten
   // TODO: Aufbau des Charts mit Chart.js oder ähnlichem
