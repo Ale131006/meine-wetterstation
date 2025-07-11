@@ -20,6 +20,8 @@ async function loadData() {
   return data;
 }
 
+loadData();
+
 
 document.addEventListener('DOMContentLoaded', () => {
   const liveTab = document.getElementById('live-tab');
@@ -40,6 +42,14 @@ document.addEventListener('DOMContentLoaded', () => {
     historySection.classList.remove('hidden');
     liveSection.classList.add('hidden');
   });
+
+  if (window.GPS_DATA) {
+    document.getElementById('location').textContent = `Ort: ${window.GPS_DATA.location}`;
+    document.getElementById('altitude').textContent = `Höhe: ${window.GPS_DATA.altitude} m`;
+    const coordsSpan = document.getElementById('coords');
+    coordsSpan.title = `Lat: ${window.GPS_DATA.latitude}, Lon: ${window.GPS_DATA.longitude}, Höhe: ${window.GPS_DATA.altitude} m`;
+    coordsSpan.classList.add('tooltip');
+  }
 
   // TODO: Fetch und Render Live-Daten
   // TODO: Fetch und Render Historische Daten
