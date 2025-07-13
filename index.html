@@ -8,19 +8,24 @@
   </head>
   <body>
     <header class="header">
-    <div class="header-top">
-      <h1 class="title">Mobile Wetterstation</h1>
-      <!-- Standort und Höhe -->
-      <div class="gps-info">
-        <span id="location" class="location">Ort: Liestal</span>
-        <span id="coords" class="coords tooltip"  data-tooltip="Lat: 47.4839, Lon: 7.7350, Höhe: 327 m">🛈</span>
+      <div class="header-top">
+        <h1 class="title">Mobile Wetterstation</h1>
+        <!-- Standort und Höhe -->
+        <div class="gps-info">
+          <span id="location" class="location">Ort: Liestal</span>
+          <span
+            id="coords"
+            class="coords tooltip"
+            data-tooltip="Lat: 47.4839, Lon: 7.7350, Höhe: 327 m"
+            >🛈</span
+          >
+        </div>
       </div>
-    </div>
-    <div class="last-update">
-      Letzte Messung: <span id="last-update">11.07.2025, 13:28:49</span>
-      <span id="live-indicator" class="live">Live</span>
-    </div>
-  </header>
+      <div class="last-update">
+        Letzte Messung: <span id="last-update">11.07.2025, 13:28:49</span>
+        <span id="live-indicator" class="live">Live</span>
+      </div>
+    </header>
 
     <nav class="tabs">
       <button id="live-tab" class="tab active">Live-Daten</button>
@@ -33,37 +38,54 @@
         <div class="cards-grid">
           <div class="card card-temp">
             <div class="card-icon">🌡️</div>
-            <div class="card-value"><span id="temp-value" class="temp-value">12</span>°C</div>
+            <div class="card-value">
+              <span id="temp-value" class="temp-value">12</span>°C
+            </div>
             <div class="card-label">Temperatur</div>
           </div>
           <div class="card card-humidity">
             <div class="card-icon">💧</div>
-            <div class="card-value"><span id="temp-value" class="temp-value">45</span>%</div>
+            <div class="card-value">
+              <span id="humidity-value" class="humidity-value">45</span>%
+            </div>
             <div class="card-label">Luftfeuchtigkeit</div>
           </div>
           <div class="card card-pressure">
             <div class="card-icon">🧭</div>
-            <div class="card-value"><span id="pressure-value" class="pressure-value">1016</span>hPa</div>
+            <div class="card-value">
+              <span id="pressure-value" class="pressure-value">1016</span>hPa
+            </div>
             <div class="card-label">Luftdruck</div>
           </div>
           <div class="card card-light">
             <div class="card-icon">☀️</div>
-            <div class="card-value"><span id="light-value" class="light-value">21500</span> Lux</div>
+            <div class="card-value">
+              <span id="light-value" class="light-value">21500</span> Lux
+            </div>
             <div class="card-label">Helligkeit</div>
           </div>
           <div class="card card-UVIndex">
             <div class="card-icon">☀️</div>
-            <div class="card-value"><span id="UVIndex-value" class="UVIndex-value">4</span></div>
+            <div class="card-value">
+              <span id="UVIndex-value" class="UVIndex-value">4</span>
+            </div>
             <div class="card-label">UV-Index</div>
           </div>
           <div class="card card-windspeed">
             <div class="card-icon">💨</div>
-            <div class="card-value"><span id="windspeed-value" class="windspeed-value">3</span>km/h</div>
+            <div class="card-value">
+              <span id="windspeed-value" class="windspeed-value">3</span>km/h
+            </div>
             <div class="card-label">Windgeschwindigkeit</div>
           </div>
           <div class="card card-winddirection">
             <div class="card-icon">🧭</div>
-            <div class="card-value winddirection-value" id="winddirection-value">Osten</div>
+            <div
+              class="card-value winddirection-value"
+              id="winddirection-value"
+            >
+              Osten
+            </div>
             <div class="card-label">Windrichtung</div>
           </div>
           <div class="card card-rain">
