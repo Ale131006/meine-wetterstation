@@ -123,6 +123,118 @@ function getHourlyMetric(allData, field, offsetDays = 0) {
   return labels.map((_, h) => hourMap.get(h) ?? null);
 }
 
+function getUniqueLocations(allData) {
+  const set = new Set();
+  allData.forEach(entry => {
+    if (entry.location) {
+      set.add(entry.location);
+    }
+  });
+  return Array.from(set);
+}
+
+function populateLocationSelect() {
+  const sel = document.getElementById('location-select');
+  sel.innerHTML = '<option value="">— wählen —</option>';
+  getUniqueLocations(allData).forEach(loc => {
+    const o = document.createElement('option');
+    o.value = o.textContent = loc;
+    sel.appendChild(o);
+  });
+}
+
+function getUniqueMonths(data, location) {
+  const months = new Set();
+  data.forEach(e => {
+    if (e.location !== location) return;
+    let [d] = e.timestamp.split(' ');
+    if (d.includes('.')) {
+      const [dd,mm,yy] = d.split('.');
+      d = `${yy}-${mm}-${dd}`;
+    }
+    months.add(d.slice(0,7));
+  });
+  return Array.from(months).sort();
+}
+function populateMonthSelect(location) {
+  const sel = document.getElementById('month-select');
+  sel.innerHTML = '';
+  const names = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  getUniqueMonths(allData, location).forEach(m => {
+    const [yy,mm] = m.split('-');
+    const o = document.createElement('option');
+    o.value = m;
+    o.textContent = `${names[parseInt(mm)-1]} ${yy}`;
+    sel.appendChild(o);
+  });
+}
+
+function populateDateSelect(location, month) {
+  const sel = document.getElementById('date-select');
+  sel.innerHTML = '';
+  const days = new Set();
+  allData.forEach(e => {
+    if (e.location !== location) return;
+    let [d] = e.timestamp.split(' ');
+    if (d.includes('.')) {
+      const [dd,mm,yy] = d.split('.');
+      d = `${yy}-${mm}-${dd}`;
+    }
+    if (d.startsWith(month)) days.add(d);
+  });
+  Array.from(days).sort().forEach(d => {
+    const [yy,mm,dd] = d.split('-');
+    const o = document.createElement('option');
+    o.value = d;
+    o.textContent = `${dd}.${mm}.${yy}`;
+    sel.appendChild(o);
+  });
+}
+
+function getDailyMetric(data, field, dateISO) {
+  const map = new Map();
+  data.forEach(e => {
+    let [d,t] = e.timestamp.split(' ');
+    if (d.includes('.')) {
+      const [dd,mm,yy] = d.split('.');
+      d = `${yy}-${mm}-${dd}`;
+    }
+    if (d !== dateISO) return;
+    let v = e[field];
+    if (field==='rain')    v = (v==='Ja'||v==='Yes')?1:0;
+    if (field==='pressure') v = parseFloat(v)/100;
+    const hr = parseInt(t.split(':')[0],10);
+    map.set(hr, parseFloat(v));
+  });
+  return get24HourLabels().map((_,i)=> map.get(i) ?? null);
+}
+
+let historyChart;
+function drawHistoryFor(location, dateISO, metric) {
+  const cfg = metricConfig[metric];
+  const data = getDailyMetric(allData, cfg.field, dateISO);
+  const ctx  = document.getElementById('historyChart').getContext('2d');
+  if (historyChart) historyChart.destroy();
+  historyChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: get24HourLabels(),
+      datasets: [{
+        label: `${cfg.label} am ${dateISO}`,
+        data, spanGaps:true, tension:0.3,
+        borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,0.2)', pointRadius:3
+      }]
+    },
+    options: {
+      scales: {
+        x:{ title:{display:true,text:'Stunde'} },
+        y:{ min:cfg.min, max:cfg.max, ticks:{stepSize:cfg.stepSize} }
+      },
+      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false} }
+    }
+  });
+}
+
 
 
 //fetch live Daten
@@ -304,7 +416,9 @@ function renderMetricChart(metricName, offsetDays = 0) {
 
 
 async function start() {
-  await fetchData();
+  await fetchData().then(() => {
+  populateLocationSelect();
+});
   renderLive();
   // statt renderDailyChart jetzt das Chart für die ausgewählte Metrik zeichnen:
   const select = document.getElementById('metric-select');
@@ -356,4 +470,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // TODO: Fetch und Render Historische Daten
   // TODO: Aufbau des Charts mit Chart.js oder ähnlichem
+});
+
+document.addEventListener('DOMContentLoaded', async ()=> {
+  await fetchData();
+  populateLocationSelect();
+
+  const locSel   = document.getElementById('location-select');
+  const monSel   = document.getElementById('month-select');
+  const dateSel  = document.getElementById('date-select');
+  const metricSel= document.getElementById('history-metric-select');
+
+  locSel.addEventListener('change', ()=>{
+    const loc = locSel.value;
+    populateMonthSelect(loc);
+    monSel.selectedIndex = 0;
+    populateDateSelect(loc, monSel.value);
+    drawHistoryFor(loc, dateSel.value, metricSel.value);
+  });
+
+  monSel.addEventListener('change', ()=>{
+    populateDateSelect(locSel.value, monSel.value);
+    drawHistoryFor(locSel.value, dateSel.value, metricSel.value);
+  });
+
+  dateSel.addEventListener('change', ()=>{
+    drawHistoryFor(locSel.value, dateSel.value, metricSel.value);
+  });
+
+  metricSel.addEventListener('change', ()=>{
+    drawHistoryFor(locSel.value, dateSel.value, metricSel.value);
+  });
+
+  // erste Ausführung
+  locSel.selectedIndex = 0;
+  locSel.dispatchEvent(new Event('change'));
 });

@@ -125,27 +125,33 @@
     <section id="history-section" class="section hidden">
       <div class="history-controls">
         <select
-          id="period-select"
-          class="period-select"
-          title="Zeitraum auswählen"
-        >
-          <option value="today">heute</option>
-          <option value="week">letzte Woche</option>
-          <option value="month">letzter Monat</option>
-        </select>
-        <select
           id="location-select"
           class="location-select"
           title="Standort auswählen"
         >
-          <option value="all">alle</option>
+          <option value="all">Ziefen</option>
+          <option value="all">Liestal</option>
           <!-- weitere Stationen -->
         </select>
+        <label for="month-select">Monat wählen:</label>
+        <select id="month-select"></select>
+
+        <label for="date-select">Tag wählen:</label>
+        <input type="date" id="date-select" />
+         <label>
+      Messwert wählen
+      <select id="history-metric-select">
+        <option>Temperatur</option>
+        <option>Luftfeuchtigkeit</option>
+        <option>Luftdruck</option>
+        <option>Helligkeit</option>
+        <option>UV-Index</option>
+        <option>Windgeschwindigkeit</option>
+        <option>Regen</option>
+      </select>
+    </label>
       </div>
-      <ul id="history-list" class="history-list">
-        <!-- historische Einträge als Listenelemente -->
-      </ul>
-    </section>
+      <canvas id="historyChart" width="800" height="400"></canvas>
 
     <script src="script.js"></script>
   </body>
