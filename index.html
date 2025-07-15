@@ -39,49 +39,79 @@
       <div class="cards-container">
         <div class="cards-grid">
           <div class="card card-temp">
-            <div class="card-icon">🌡️</div>
+            <div class="card-icon">
+              <svg class="temp-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"></path>
+        </svg>
+      </div>
             <div class="card-value">
               <span id="temp-value" class="temp-value">12</span>°C
             </div>
             <div class="card-label">Temperatur</div>
           </div>
           <div class="card card-humidity">
-            <div class="card-icon">💧</div>
+            <div class="card-icon"><svg class="hum-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"></path>
+                <path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97" ></path>
+                </svg>
+            </div>
             <div class="card-value">
               <span id="humidity-value" class="humidity-value">45</span>%
             </div>
             <div class="card-label">Luftfeuchtigkeit</div>
           </div>
           <div class="card card-pressure">
-            <div class="card-icon">🧭</div>
+            <div class="card-icon"><svg class="pressure-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m12 14 4-4"></path>
+              <path d="M3.34 19a10 10 0 1 1 17.32 0" ></path>
+        </svg></div>
             <div class="card-value">
               <span id="pressure-value" class="pressure-value">1016</span>hPa
             </div>
             <div class="card-label">Luftdruck</div>
           </div>
           <div class="card card-light">
-            <div class="card-icon">☀️</div>
+            <div class="card-icon"><svg class="light-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path d="M12 2v2"></path>
+              <path d="M12 20v2"></path>
+              <path d="m4.93 4.93 1.41 1.41"></path>
+              <path d="m17.66 17.66 1.41 1.41"></path>
+              <path d="M2 12h2"></path>
+              <path d="M20 12h2"></path>
+              <path d="m6.34 17.66-1.41 1.41"></path>
+              <path d="m19.07 4.93-1.41 1.41"></path>
+                </svg></div>
             <div class="card-value">
               <span id="light-value" class="light-value">21500</span> Lux
             </div>
             <div class="card-label">Helligkeit</div>
           </div>
           <div class="card card-UVIndex">
-            <div class="card-icon">☀️</div>
+            <div class="card-icon"><svg class="uvi-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"></path>
+        </svg></div>
             <div class="card-value">
               <span id="UVIndex-value" class="UVIndex-value">4</span>
             </div>
             <div class="card-label">UV-Index</div>
           </div>
           <div class="card card-windspeed">
-            <div class="card-icon">💨</div>
+            <div class="card-icon"><svg class="windspeed-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12.8 19.6A2 2 0 1 0 14 16H2"></path>
+              <path d="M17.5 8a2.5 2.5 0 1 1 2 4H2"></path>
+              <path d="M9.8 4.4A2 2 0 1 1 11 8H2"></path>
+        </svg></div>
             <div class="card-value">
               <span id="windspeed-value" class="windspeed-value">3</span>km/h
             </div>
             <div class="card-label">Windgeschwindigkeit</div>
           </div>
           <div class="card card-winddirection">
-            <div class="card-icon">🧭</div>
+            <div class="card-icon"><svg class="winddirection-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"></path>
+              <circle cx="12" cy="12" r="10"></circle>
+        </svg></div>
             <div
               class="card-value winddirection-value"
               id="winddirection-value"
@@ -91,7 +121,12 @@
             <div class="card-label">Windrichtung</div>
           </div>
           <div class="card card-rain">
-            <div class="card-icon">🌧️</div>
+            <div class="card-icon"><svg class="rain-svg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 14v6"></path>
+              <path d="M8 14v6"></path>
+              <path d="M12 16v6"></path>
+              <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path>
+        </svg></div>
             <div class="card-value rain-value" id="rain-value">Nein</div>
             <div class="card-label">Regen</div>
           </div>
@@ -120,6 +155,15 @@
           </div>
           <canvas id="dailyChart" style="max-height: 300px;"></canvas>
         </div>
+        <details class="detail-container">
+          <summary class="detail-summary">
+            <span class="toggle-icon">▼</span>
+            <span id="detail-summary-text">Daten vom 15.07.2025 – Zürich</span>
+          </summary>
+          <div class="detail-body" id="detail-data">
+            <!-- Hier fügen wir gleich per JS den Inhalt ein -->
+          </div>
+        </details>
       </div>
     </section>
 
@@ -151,33 +195,16 @@
     </label>
       </div>
       <canvas id="historyChart" width="800" height="275" ></canvas>
-
+      <details id="history-details" class="data-details detail-container">
+        <summary class="detail-summary">
+          <span class="toggle-icon">▼</span>
+          <span id="spanElement">Daten vom 15.07.2025 – Zürich</span>
+        </summary>
+        <div id="history-detail-data" class="detail-body">
+          <!-- Hier fügen wir gleich per JS den Inhalt ein -->
+        </div>
+      </details>
     <script src="script.js"></script>
   </body>
 </html>
 
-<!---<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Meine Wetterstation</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script defer src="script.js"></script>
-    <style>
-      body {
-        font-family: sans-serif;
-        padding: 20px;
-      }
-      canvas {
-        max-width: 100%;
-      }
-    </style>
-  </head>
-  <body>
-    <h1>Live-Daten meiner Wetterstation</h1>
-    <h2>Das ist ein Test</h2>
-    <h3>Branch Entwicklung</h3>
-    <canvas id="tempChart" height="100"></canvas>
-  </body>
-</html> ---->

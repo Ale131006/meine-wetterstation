@@ -242,6 +242,7 @@ function drawHistoryFor(location, dateISO, metric) {
       maintainAspectRatio: false
     }
   });
+  renderHistoryDetailData(dateISO, location);
 }
 
 
@@ -255,7 +256,20 @@ async function fetchData(){
     lines.shift(); // Entfernt die Kopfzeile
 
     allData = lines.map(line => {
-      const [timestamp, temperature, humidity, pressure, light, UVIndex, windspeed, windDirection, location, altitude, rain] = line.split(',');
+      let [timestamp, temperature, humidity, pressure, light, UVIndex, windspeed, windDirection, location, altitude, rain] = line.split(',');
+
+      if(windDirection === "Sden"){
+        windDirection = "Süden";
+      }else if(windDirection === "Sdwest"){
+        windDirection = "Südwest";
+      }
+      if(rain === "No"){
+        rain = "Nein";
+      }
+      else if(rain === "Yes"){
+        rain = "Ja";
+      }
+
       return {
         timestamp:  convertUTCTextToCET(timestamp),
         temperature: parseFloat(temperature),
@@ -270,7 +284,7 @@ async function fetchData(){
         rain
       };
     });
-    console.log('Fetched data:', allData.length
+    console.log('Fetched data:', allData
     );
   } catch (error) { 
     console.error('Error fetching data:', error);
@@ -291,10 +305,10 @@ function renderLive(){
 
   const latest = allData[allData.length - 1];
 
-  if(latest.rain === "Ja" || latest.rain === "Yes"){
+  if(latest.rain === "Yes"){
     latest.rain = "Ja";
   }
-  else if(latest.rain === "Nein" || latest.rain === "No"){
+  else if(latest.rain === "No"){
     latest.rain = "Nein";
   }
 
@@ -316,10 +330,11 @@ function renderLive(){
 function startAutoRefresh() {
   // Erstmalig laden und rendern
   fetchData().then(renderLive);
+  const todaysData = getTodaysData(allData);
+  renderDetailData(todaysData, 'detail-data');
 
   setInterval(async () => {
   await fetchData();
-  renderLive();
   renderMetricChart(document.getElementById('metric-select').value, 0);
   updateLiveStatus();
 }, 5 * 60 * 1000);}
@@ -464,6 +479,8 @@ async function start() {
   populateLocationSelect();
 });
   renderLive();
+  const todaysData = getTodaysData(allData);
+  renderDetailData(todaysData, 'detail-data');
   // statt renderDailyChart jetzt das Chart für die ausgewählte Metrik zeichnen:
   const select = document.getElementById('metric-select');
   renderMetricChart(select.value, 0);
@@ -471,6 +488,174 @@ async function start() {
 }
 
 start();
+
+
+/**
+ * Fügt alle Einzelmessungen für den gewählten Standort und Tag in die History‑Tabelle ein.
+ * Und öffnet das Details‑Panel, falls Daten vorhanden sind.
+ *
+ * @param {string} location   Der Standort-Name
+ * @param {string} dateISO    Das Datum im Format "YYYY-MM-DD"
+ */
+
+
+function renderDetailData(data, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (!data || data.length === 0) {
+    container.innerHTML = '<p style="padding:1rem;">Keine Daten verfügbar.</p>';
+    return;
+  }
+
+  const spanElement = document.getElementById("detail-summary-text");
+
+  const fields = [
+    { key: 'timestamp', label: 'Zeit' },
+    { key: 'temperature', label: 'Temperatur (°C)' },
+    { key: 'humidity', label: 'Luftfeuchtigkeit (%)' },
+    { key: 'pressure', label: 'Luftdruck (hPa)' },
+    { key: 'light', label: 'Helligkeit (lx)' },
+    { key: 'UVIndex', label: 'UV-Index' },
+    { key: 'windspeed', label: 'Windgeschw. (km/h)' },
+    { key: 'windDirection', label: 'Windrichtung (°)' },
+    { key: 'rain', label: 'Regen' }
+  ];
+
+  let ort = data[0].location;
+  let date = data[0].timestamp.split(" ")[0];
+
+  let spanText = `Rohdaten vom ${date} - ${ort}`;
+
+  spanElement.innerHTML = spanText;
+
+
+  const table = document.createElement('table');
+  table.className = 'detail-table';
+
+  // Table head
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  fields.forEach(f => {
+    const th = document.createElement('th');
+    th.textContent = f.label;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  // Table body
+  const tbody = document.createElement('tbody');
+  data.forEach(entry => {
+    const row = document.createElement('tr');
+    fields.forEach(f => {
+      const td = document.createElement('td');
+      let val = entry[f.key];
+      if (typeof val === 'number') {
+        val = val.toFixed(2);
+      }
+      td.textContent = val ?? '-';
+      row.appendChild(td);
+    });
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+
+  container.innerHTML = '';
+  container.appendChild(table);
+
+
+
+}
+
+
+function getTodaysData(data) {
+  const today = new Date();
+  const day   = String(today.getDate()).padStart(2, '0');
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const year  = today.getFullYear();
+
+  const todayStr = `${day}.${month}.${year}`; // DD.MM.YYYY
+
+  return data.filter(entry => entry.timestamp.startsWith(todayStr));
+}
+
+function renderHistoryDetailData(dateISO, location) {
+  const container = document.getElementById('history-detail-data');
+  const detailsBox = document.getElementById('history-details');
+
+  const filtered = allData.filter(e => {
+    let [d] = e.timestamp.split(' ');
+    if (d.includes('.')) {
+      const [dd, mm, yy] = d.split('.');
+      d = `${yy}-${mm}-${dd}`;
+    }
+    return d === dateISO && e.location === location;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<p style="padding:1rem;">Keine Daten für diesen Tag verfügbar.</p>';
+    detailsBox.classList.add('hidden');
+    return;
+  }
+
+
+  detailsBox.classList.remove('hidden');
+
+  const fields = [
+    { key: 'timestamp', label: 'Zeit' },
+    { key: 'temperature', label: 'Temperatur (°C)' },
+    { key: 'humidity', label: 'Luftfeuchtigkeit (%)' },
+    { key: 'pressure', label: 'Luftdruck (hPa)' },
+    { key: 'light', label: 'Helligkeit (lx)' },
+    { key: 'UVIndex', label: 'UV-Index' },
+    { key: 'windspeed', label: 'Windgeschw. (km/h)' },
+    { key: 'windDirection', label: 'Windrichtung (°)' },
+    { key: 'rain', label: 'Regen' }
+  ];
+
+  const spanElement = document.getElementById("spanElement");
+  let ort = location;
+  let year = dateISO.split("-")[0];
+  let month = dateISO.split("-")[1];
+  let day = dateISO.split("-")[2];
+
+  let spanText = `Rohdaten vom ${year}.${month}.${day} - ${ort}`;
+
+  spanElement.innerHTML = spanText;
+
+  const table = document.createElement('table');
+  table.className = 'detail-table';
+
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  fields.forEach(f => {
+    const th = document.createElement('th');
+    th.textContent = f.label;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  filtered.forEach(entry => {
+    const row = document.createElement('tr');
+    fields.forEach(f => {
+      const td = document.createElement('td');
+      let val = entry[f.key];
+      if (typeof val === 'number') {
+        val = val.toFixed(2);
+      }
+      td.textContent = val ?? '-';
+      row.appendChild(td);
+    });
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+
+  container.innerHTML = '';
+  container.appendChild(table);
+}
 
 
 
