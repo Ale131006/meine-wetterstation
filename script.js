@@ -735,3 +735,8 @@ document.addEventListener('DOMContentLoaded', async ()=> {
   locSel.selectedIndex = 0;
   locSel.dispatchEvent(new Event('change'));
 });
+
+
+//Chart anpassung bei starken Änderungen. 
+//Nicht gleiche Daten von heute, (History chart ist noch nicht auf Durchschnitt angepasst)
+//immer nur 2tletste messung nicht letzte Messung
