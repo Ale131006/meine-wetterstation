@@ -89,38 +89,38 @@ function updateLiveStatus() {
 }
 
 
-function getHourlyMetric(allData, field, offsetDays = 0) {
-  const labels = get24HourLabels();
-  const hourMap = new Map();
+function getHourlyMetric(allData, field, targetDateStr, config) {
+  const { aggregate } = config;
+  const buckets = Array.from({ length: 24 }, () => []);
 
-  const targetDate = new Date();
-  targetDate.setDate(targetDate.getDate() - offsetDays);
-  const targetDateStr = targetDate.toISOString().slice(0,10); // "YYYY-MM-DD"
-
-  allData.forEach(entry => {
-    let [datePart, timePart] = entry.timestamp.split(' ');
-    if (datePart.includes('.')) {
-      const [d, m, y] = datePart.split('.');
-      datePart = `${y}-${m}-${d}`;
+  allData.forEach(e => {
+    let [d, t] = e.timestamp.split(' ');
+    if (d.includes('.')) {
+      const [dd, mm, yy] = d.split('.');
+      d = `${yy}-${mm}-${dd}`;
     }
 
-    if (datePart !== targetDateStr) return;
+    if (d !== targetDateStr) return;
 
-    const hour = parseInt(timePart.split(':')[0], 10);
-    let value = entry[field];
+    const hour = parseInt(t.split(':')[0], 10);
+    let v = e[field];
 
-    // Sonderbehandlung für "rain" und "pressure"
     if (field === 'rain') {
-      value = (value === 'Ja' || value === 'Yes') ? 1 : 0;
-    }
-    if (field === 'pressure') {
-      value = parseFloat(value); // hPa statt Pa
+      v = (v === 'Ja' || v === 'Yes') ? 1 : 0;
+    } else if ([
+      'temperature', 'humidity', 'light', 'UVIndex',
+      'windspeed', 'pressure'
+    ].includes(field)) {
+      v = parseFloat(v);
     }
 
-    hourMap.set(hour, parseFloat(value));
+    // Nur gültige Zahlen hinzufügen
+    if (!isNaN(v)) {
+      buckets[hour].push(v);
+    }
   });
 
-  return labels.map((_, h) => hourMap.get(h) ?? null);
+  return buckets.map(arr => arr.length ? aggregate(arr) : null);
 }
 
 function getUniqueLocations(allData) {
@@ -135,7 +135,7 @@ function getUniqueLocations(allData) {
 
 function populateLocationSelect() {
   const sel = document.getElementById('location-select');
-  sel.innerHTML = '<option value="">— wählen —</option>';
+  sel.innerHTML = '<option value="">— Standort wählen —</option>';
   getUniqueLocations(allData).forEach(loc => {
     const o = document.createElement('option');
     o.value = o.textContent = loc;
@@ -171,7 +171,8 @@ function populateMonthSelect(location) {
 
 function populateDateSelect(location, month) {
   const sel = document.getElementById('date-select');
-  sel.innerHTML = '';
+  sel.innerHTML = '';  // alle alten Optionen löschen
+
   const days = new Set();
   allData.forEach(e => {
     if (e.location !== location) return;
@@ -182,12 +183,13 @@ function populateDateSelect(location, month) {
     }
     if (d.startsWith(month)) days.add(d);
   });
+
   Array.from(days).sort().forEach(d => {
     const [yy,mm,dd] = d.split('-');
-    const o = document.createElement('option');
-    o.value = d;
-    o.textContent = `${dd}.${mm}.${yy}`;
-    sel.appendChild(o);
+    const opt = document.createElement('option');
+    opt.value       = d;                // ISO‑Wert "YYYY-MM-DD"
+    opt.textContent = `${dd}.${mm}.${yy}`; // Anzeige "DD.MM.YYYY"
+    sel.appendChild(opt);
   });
 }
 
@@ -202,7 +204,10 @@ function getDailyMetric(data, field, dateISO) {
     if (d !== dateISO) return;
     let v = e[field];
     if (field==='rain')    v = (v==='Ja'||v==='Yes')?1:0;
-    if (field==='pressure') v = parseFloat(v)/100;
+    if (field==='pressure'){
+      v = parseFloat(v);
+
+    } 
     const hr = parseInt(t.split(':')[0],10);
     map.set(hr, parseFloat(v));
   });
@@ -222,7 +227,9 @@ function drawHistoryFor(location, dateISO, metric) {
       datasets: [{
         label: `${cfg.label} am ${dateISO}`,
         data, spanGaps:true, tension:0.3,
-        borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,0.2)', pointRadius:3
+        borderColor:chartColors[metric], 
+        backgroundColor:'rgba(59,130,246,0.2)', 
+        pointRadius:3
       }]
     },
     options: {
@@ -230,7 +237,9 @@ function drawHistoryFor(location, dateISO, metric) {
         x:{ title:{display:true,text:'Stunde'} },
         y:{ min:cfg.min, max:cfg.max, ticks:{stepSize:cfg.stepSize} }
       },
-      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false} }
+      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false} }, 
+      responsive: true,
+      maintainAspectRatio: false
     }
   });
 }
@@ -261,7 +270,7 @@ async function fetchData(){
         rain
       };
     });
-    console.log('Fetched data:', allData
+    console.log('Fetched data:', allData.length
     );
   } catch (error) { 
     console.error('Error fetching data:', error);
@@ -311,7 +320,7 @@ function startAutoRefresh() {
   setInterval(async () => {
   await fetchData();
   renderLive();
-  renderDailyChart();
+  renderMetricChart(document.getElementById('metric-select').value, 0);
   updateLiveStatus();
 }, 5 * 60 * 1000);}
 
@@ -321,37 +330,62 @@ const metricConfig = {
   Temperatur: {
     field: 'temperature',
     label: 'Temperatur (°C)',
-    min: 10, max: 35, stepSize: 5
+    min: 10, max: 35, stepSize: 5,
+    aggregate: arr => arr.reduce((a,b)=>a+b,0) / arr.length
   },
   Luftfeuchtigkeit: {
     field: 'humidity',
     label: 'Luftfeuchtigkeit (%)',
-    min: 0,  max: 100, stepSize: 20
+    min: 0, max: 100, stepSize: 20,
+    aggregate: arr => arr.reduce((a,b)=>a+b,0) / arr.length
   },
   Luftdruck: {
     field: 'pressure',
     label: 'Luftdruck (hPa)',
-    min: 980, max: 1040, stepSize: 10
+    min: 980, max: 1040, stepSize: 10,
+    aggregate: arr => (arr.reduce((a,b)=>a+b,0) / arr.length)
   },
   Helligkeit: {
     field: 'light',
     label: 'Helligkeit (lux)',
-    min: 0, max: 10000, stepSize: 2000
+    min: 0, max: 10000, stepSize: 2000,
+    aggregate: arr => arr.reduce((a,b)=>a+b,0) / arr.length
   },
   'UV-Index': {
     field: 'UVIndex',
     label: 'UV-Index',
-    min: 0, max: 12, stepSize: 2
+    min: 0, max: 12, stepSize: 2,
+    aggregate: arr => arr.reduce((a,b)=>a+b,0) / arr.length
   },
   Windgeschwindigkeit: {
     field: 'windspeed',
     label: 'Windgeschwindigkeit (km/h)',
-    min: 0, max: 50, stepSize: 10
+    min: 0, max: 50, stepSize: 10,
+    aggregate: arr => Math.max(...arr)  // maximale Böe
   },
   Regen: {
     field: 'rain',
     label: 'Regen (Ja=1/Nein=0)',
-    min: 0, max: 1, stepSize: 1
+    min: 0, max: 1, stepSize: 1,
+    aggregate: arr => arr.some(v => v===1) ? 1 : 0
+  },
+  Windrichtung: {
+    field: 'windDirection',
+    label: 'Windrichtung',
+    min: 0, max: 360, stepSize: 45,
+    // Vektor‑Mittel: wandle Winkel→Vektoren, mitteln, zurück
+    aggregate: arr => {
+      const toRad = a => a * Math.PI/180;
+      const toDeg = r => r * 180/Math.PI;
+      let x=0, y=0;
+      arr.forEach(dir => {
+        const d = parseFloat(dir) * Math.PI/180;
+        x += Math.cos(d);
+        y += Math.sin(d);
+      });
+      const avg = Math.atan2(y, x);
+      return (toDeg(avg) + 360) % 360; 
+    }
   }
 };
 
@@ -372,7 +406,17 @@ let dailyChart;
 
 function renderMetricChart(metricName, offsetDays = 0) {
   const config = metricConfig[metricName];
-  const data = getHourlyMetric(allData, config.field, offsetDays);
+
+  if (!config || typeof config.aggregate !== 'function') {
+    console.error(`Ungültige Metrik-Konfiguration für: ${metricName}`);
+    return;
+  }
+
+  const today = new Date();
+  today.setDate(today.getDate() + offsetDays);
+  const targetDateStr = today.toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+  const data = getHourlyMetric(allData, config.field, targetDateStr, config);
   const labels = get24HourLabels();
 
   const ctx = document.getElementById('dailyChart').getContext('2d');
@@ -407,7 +451,7 @@ function renderMetricChart(metricName, offsetDays = 0) {
       plugins: {
         legend: { display: false },
         tooltip: { mode: 'index', intersect: false }
-      }, 
+      },
       responsive: true,
       maintainAspectRatio: false
     }

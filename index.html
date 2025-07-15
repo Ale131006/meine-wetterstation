@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mobile Wetterstation</title>
+    <link rel="icon" type="image/png" href="/assets/weather.png">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="style.css" />
   </head>
@@ -117,13 +118,13 @@
               <option>Regen</option>
             </select>
           </div>
-          <canvas id="dailyChart"></canvas>
+          <canvas id="dailyChart" style="max-height: 300px;"></canvas>
         </div>
       </div>
     </section>
 
     <section id="history-section" class="section hidden">
-      <div class="history-controls">
+      <div class="history-controls history-filters">
         <select
           id="location-select"
           class="location-select"
@@ -136,9 +137,7 @@
         <label for="month-select">Monat wählen:</label>
         <select id="month-select"></select>
 
-        <label for="date-select">Tag wählen:</label>
-        <input type="date" id="date-select" />
-         <label>
+        <select id="date-select"></select>
       Messwert wählen
       <select id="history-metric-select">
         <option>Temperatur</option>
@@ -151,7 +150,7 @@
       </select>
     </label>
       </div>
-      <canvas id="historyChart" width="800" height="400"></canvas>
+      <canvas id="historyChart" width="800" height="275" ></canvas>
 
     <script src="script.js"></script>
   </body>
