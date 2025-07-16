@@ -575,6 +575,166 @@ footer {
   z-index: 100;
 }
 
+/* Jede Stunde als vertikales Accordion-Element */
+.hour-group {
+  margin-bottom: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.hour-group summary {
+  background-color: #f3f4f6;
+  padding: 0.6rem 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  list-style: none;
+}
+
+/* Entfernt das Standard‑Marker‑Icon */
+.hour-group summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Pfeil‑Icon am Anfang */
+.hour-group summary .toggle-icon {
+  display: inline-block;
+  transform: rotate(0deg);
+  transition: transform 0.2s ease;
+  margin-right: 0.5rem;
+}
+.hour-group[open] summary .toggle-icon {
+  transform: rotate(90deg);
+}
+
+/* Tabelle unter dem Summary */
+.hour-group .hour-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.hour-group .hour-table th,
+.hour-group .hour-table td {
+  border: 1px solid #ddd;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+}
+.hour-group .hour-table th {
+  background: #e5e7eb;
+}
+
+/* Footer‑Button ganz unten */
+.detail-footer {
+  margin-top: 1rem;
+  text-align: right;
+}
+.detail-footer .download-btn {
+  background-color: #0f172a;
+  color: white;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.detail-footer .download-btn:hover {
+  background-color: #1e293b;
+}
+
+
+/* Jede Stunde als Voll‑Breiten‑Accordion */
+.hour-group {
+  margin-bottom: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+  width: 100%;
+}
+
+/* Summary als Block, ganze Breite, Padding */
+.hour-group summary {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: #f3f4f6;
+  font-weight: bold;
+  cursor: pointer;
+  position: relative;
+}
+
+/* Pfeil links */
+.hour-group summary .toggle-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%) rotate(0deg);
+  transition: transform 0.2s;
+}
+
+/* Wenn geöffnet, Pfeil nach unten drehen */
+.hour-group[open] summary .toggle-icon {
+  transform: translateY(-50%) rotate(90deg);
+}
+
+/* Damit der Text nicht unter den Pfeil rutscht */
+.hour-group summary span:not(.toggle-icon) {
+  margin-left: 2rem;
+}
+
+/* Tabelle direkt unter summary */
+.hour-group .hour-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.hour-group .hour-table th,
+.hour-group .hour-table td {
+  border: 1px solid #ddd;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+}
+.hour-group .hour-table th {
+  background: #e5e7eb;
+}
+
+.hour-group summary {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  outline: none;  /* optional, falls focus outline stört */
+  position: relative;
+  padding-left: 2.3rem;
+}
+
+.hour-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.hour-group summary::before {
+  content: '▶';
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%) rotate(0deg);
+  transition: transform 0.2s ease;
+}
+
+.hour-group[open] summary::before {
+  transform: translateY(-50%) rotate(90deg);
+}
+
+/* dunkler Header für alle hour‑Tables */
+.hour-group .hour-table thead th {
+  background-color: #374151;  /* Dunkles Grau‑Blau */
+  color: #f9fafb;             /* Helles Weiß/Grau für den Kontrast */
+}
+
+/* falls du auch die Detail‑Tabelle außerhalb der hour‑Groups style‑n willst */
+.detail-table thead th {
+  background-color: #374151;
+  color: #f9fafb;
+}
+
 
 
 

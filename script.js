@@ -4,12 +4,6 @@ if (!CSV_URL) {
   window.CSV_URL = CSV_URL;
 }
 
-if (location.hostname === "ale131006.github.io") {
-  const base = document.createElement("base");
-  base.href = "/meine-wetterstation/";
-  document.head.appendChild(base);
-}
-
 let allData = [];
 
 const temperatureElement = document.getElementById('temp-value');
@@ -115,6 +109,28 @@ function updateLiveStatus() {
     statusElement.style.backgroundColor = "#fdd0d0ff";
     statusElement.style.color = "#7f1d1d";
   }
+}
+
+/**
+ * Berechnet aus einem Array von Zahlen (mit möglichen null-Werten) 
+ * das Minimum und Maximum mit einem 10 %-Puffer.
+ *
+ * @param {Array<number|null>} arr 
+ * @returns {{min: number, max: number}}
+ */
+function computeScaleRange(arr) {
+  // Nur gültige Zahlen behalten
+  const vals = arr.filter(v => v != null && !isNaN(v));
+  if (vals.length === 0) {
+    return { min: 0, max: 1 };
+  }
+  const actualMin = Math.min(...vals);
+  const actualMax = Math.max(...vals);
+  const pad = (actualMax - actualMin) * 0.1;
+  return {
+    min: Math.floor(actualMin - pad),
+    max: Math.ceil (actualMax + pad)
+  };
 }
 
 
@@ -318,30 +334,100 @@ function getDailyMetric(data, field, dateISO) {
 }
 
 let historyChart;
-function drawHistoryFor(location, dateISO, metric) {
-  const cfg = metricConfig[metric];
+
+function initEmptyHistoryChart() {
+  const ctx = document.getElementById('historyChart').getContext('2d');
+  // Zerstöre gegebenenfalls den alten Chart
+  if (historyChart) historyChart.destroy();
+
+  historyChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: get24HourLabels(),   // 00:00, 01:00, …
+      datasets: []                 // leer
+    },
+    options: {
+      scales: {
+        x: { title: { display: true, text: 'Stunde' } },
+        y: { title: { display: true, text: '' } }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false }
+      },
+      responsive: true,
+      maintainAspectRatio: false
+    }
+  });
+}
+
+
+
+
+
+function drawHistoryFor(location, dateISO, metricName) {
+  const cfg = metricConfig[metricName];
   if (!cfg) {
-    console.error(`Unbekannte Metrik: ${metric}`);
+    console.error(`Unbekannte Metrik: ${metricName}`);
     return;
   }
 
-  // Daten für den gewählten Tag und die gewählte Metrik
+  // 1) Filtern nach Datum+Ort
+  const filtered = allData.filter(e => {
+    let [d] = e.timestamp.split(' ');
+    if (d.includes('.')) {
+      const [dd,mm,yy] = d.split('.');
+      d = `${yy}-${mm}-${dd}`;
+    }
+    return d === dateISO && e.location === location;
+  });
+
+  if (filtered.length === 0) {
+    // ggf. Chart löschen oder Meldung
+    return;
+  }
+
+  // 2) Stundenweise Daten vorbereiten
   const data = getHourlyMetric(allData, cfg.field, dateISO, cfg);
   const labels = get24HourLabels();
 
-  // Chart neu zeichnen
+  // 3) Dynamische Min/Max berechnen
+  const { min: dynMin, max: dynMax } = computeScaleRange(data);
+
+  // 4) Standard‑Bereich aus config
+  let finalMin = cfg.min;
+  let finalMax = cfg.max;
+
+  // 5) Schwellen‑Logik analog zum Daily‑Chart
+  if (metricName === 'Temperatur') {
+    if (dynMin < 10) { finalMin = -5; finalMax = 25; }
+    else if (dynMax > 35) { finalMin = 15; finalMax = 40; }
+  }
+  if (metricName === 'Helligkeit') {
+    finalMin = 0;
+    if (dynMax > 50000) finalMax = 75000;
+    else if (dynMax > 10000) finalMax = 50000;
+  }
+  if (metricName === 'Windgeschwindigkeit') {
+    finalMin = 0;
+    if (dynMax > 40) finalMax = 80;
+    else if (dynMax > 20) finalMax = 50;
+  }
+
+  // 6) Chart zeichnen / updaten
   const ctx = document.getElementById('historyChart').getContext('2d');
+  console.log(ctx);
   if (historyChart) historyChart.destroy();
   historyChart = new Chart(ctx, {
     type: 'line',
     data: {
       labels,
       datasets: [{
-        label: `${cfg.label} am ${dateISO}`,
+        label: cfg.label + ' am ' + dateISO,
         data,
         spanGaps: true,
         tension: 0.3,
-        borderColor: chartColors[metric],
+        borderColor: chartColors[metricName],
         backgroundColor: 'rgba(59,130,246,0.2)',
         pointRadius: 3
       }]
@@ -350,9 +436,9 @@ function drawHistoryFor(location, dateISO, metric) {
       scales: {
         x: { title: { display: true, text: 'Stunde' } },
         y: {
+          min: finalMin,
+          max: finalMax,
           title: { display: true, text: cfg.label },
-          min: cfg.min,
-          max: cfg.max,
           ticks: { stepSize: cfg.stepSize }
         }
       },
@@ -364,8 +450,6 @@ function drawHistoryFor(location, dateISO, metric) {
       maintainAspectRatio: false
     }
   });
-
-  // Details-Tabelle aktualisieren
   renderHistoryDetailData(dateISO, location);
 }
 
@@ -453,9 +537,9 @@ function renderLive(){
 
 function startAutoRefresh() {
   // Erstmalig laden und rendern
-  fetchData().then(renderLive);
+  fetchData().then();
   const todaysData = getTodaysData(allData);
-  renderDetailData(todaysData, 'detail-data');
+  //renderDetailData(todaysData, 'detail-data');
 
   setInterval(async () => {
   await fetchData();
@@ -472,7 +556,7 @@ const metricConfig = {
   Temperatur: {
     field: 'temperature',
     label: 'Temperatur (°C)',
-    min: -5, max: 35, stepSize: 5,
+    min: 10, max: 35, stepSize: 5,
     aggregate: arr => arr.reduce((a,b)=>a+b,0) / arr.length
   },
   Luftfeuchtigkeit: {
@@ -490,7 +574,7 @@ const metricConfig = {
   Helligkeit: {
     field: 'light',
     label: 'Helligkeit (lux)',
-    min: 0, max: 75000, stepSize: 2000,
+    min: 0, max: 20000, stepSize: 2000,
     aggregate: arr => arr.reduce((a,b)=>a+b,0) / arr.length
   },
   'UV-Index': {
@@ -547,29 +631,69 @@ const chartColors = {
 let dailyChart;
 
 function renderMetricChart(metricName, offsetDays = 0) {
-  const config = metricConfig[metricName];
-
-  if (!config || typeof config.aggregate !== 'function') {
+  const cfg = metricConfig[metricName];
+  if (!cfg || typeof cfg.aggregate !== 'function') {
     console.error(`Ungültige Metrik-Konfiguration für: ${metricName}`);
     return;
   }
 
+  // Datum ermitteln
   const today = new Date();
   today.setDate(today.getDate() + offsetDays);
-  const targetDateStr = today.toISOString().slice(0, 10); // "YYYY-MM-DD"
+  const targetDateStr = today.toISOString().slice(0,10);
 
-  const data = getHourlyMetric(allData, config.field, targetDateStr, config);
+  // Stundenweise Daten holen
+  const data   = getHourlyMetric(allData, cfg.field, targetDateStr, cfg);
   const labels = get24HourLabels();
 
+  // Dynamische Min/Max aus den Daten
+  const { min: dynMin, max: dynMax } = computeScaleRange(data);
+
+  // Default‑Bereiche aus config
+  let finalMin = cfg.min;
+  let finalMax = cfg.max;
+
+  // Spezielle Logik für Temperatur
+  if (metricName === 'Temperatur') {
+    if (dynMin < 10) {
+      finalMin = -5; finalMax = 25;
+    } else if (dynMax > 35) {
+      finalMin = 15; finalMax = 40;
+    }
+  }
+
+  // Für Helligkeit
+  if (metricName === 'Helligkeit') {
+    if (dynMax > 10000 && dynMax <= 50000) {
+      finalMax = 50000;
+    } else if (dynMax > 50000) {
+      finalMax = 75000;
+    }
+    // min bleibt bei 0
+    finalMin = 0;
+  }
+
+  // Für Windgeschwindigkeit
+  if (metricName === 'Windgeschwindigkeit') {
+    if (dynMax > 20 && dynMax <= 40) {
+      finalMax = 50;
+    } else if (dynMax > 40) {
+      finalMax = 80;
+    }
+    // min bleibt bei 0
+    finalMin = 0;
+  }
+
+
+  // Chart rendern
   const ctx = document.getElementById('dailyChart').getContext('2d');
   if (dailyChart) dailyChart.destroy();
-
   dailyChart = new Chart(ctx, {
     type: 'line',
     data: {
       labels,
       datasets: [{
-        label: config.label,
+        label: cfg.label,
         data,
         spanGaps: true,
         tension: 0.3,
@@ -580,14 +704,12 @@ function renderMetricChart(metricName, offsetDays = 0) {
     },
     options: {
       scales: {
-        x: {
-          title: { display: true, text: 'Stunde' }
-        },
+        x: { title: { display: true, text: 'Stunde' } },
         y: {
-          title: { display: true, text: config.label },
-          min: config.min,
-          max: config.max,
-          ticks: { stepSize: config.stepSize }
+          min: finalMin,
+          max: finalMax,
+          title: { display: true, text: cfg.label },
+          ticks: { stepSize: cfg.stepSize }
         }
       },
       plugins: {
@@ -626,29 +748,13 @@ start();
  */
 
 
-function renderDetailData(data, containerId) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  if (!data || data.length === 0) {
-    container.innerHTML = '<p style="padding:1rem;">Keine Daten verfügbar.</p>';
-    return;
-  }
+function renderDetailData(data) {
+  const container = document.getElementById('detail-data');
+  const footer    = document.getElementById('detail-footer');
+  container.innerHTML = '';
+  footer.innerHTML    = '';
 
   const spanElement = document.getElementById("detail-summary-text");
-
-  const fields = [
-    { key: 'timestamp', label: 'Zeit' },
-    { key: 'temperature', label: 'Temperatur (°C)' },
-    { key: 'humidity', label: 'Luftfeuchtigkeit (%)' },
-    { key: 'pressure', label: 'Luftdruck (hPa)' },
-    { key: 'light', label: 'Helligkeit (lx)' },
-    { key: 'UVIndex', label: 'UV-Index' },
-    { key: 'windspeed', label: 'Windgeschw. (km/h)' },
-    { key: 'windDirection', label: 'Windrichtung (°)' },
-    { key: 'rain', label: 'Regen' }
-  ];
-
   let ort = data[0].location;
   let date = data[0].timestamp.split(" ")[0];
 
@@ -656,60 +762,68 @@ function renderDetailData(data, containerId) {
 
   spanElement.innerHTML = spanText;
 
+  // 1) Gruppiere nach Stunde
+  const groups = data.reduce((acc, entry) => {
+    const time = entry.timestamp.split(' ')[1]; // "HH:MM:SS"
+    const hour = time.slice(0,2);               // "HH"
+    if (!acc[hour]) acc[hour] = [];
+    acc[hour].push({ ...entry, time });
+    return acc;
+  }, {});
 
-  const table = document.createElement('table');
-  table.className = 'detail-table';
+  // 2) Erzeuge für jede Stunde ein <details>
+  Object.keys(groups).sort().forEach(hour => {
+    const entries = groups[hour];
 
-  // Table head
-  const thead = document.createElement('thead');
-  const headRow = document.createElement('tr');
-  fields.forEach(f => {
-    const th = document.createElement('th');
-    th.textContent = f.label;
-    headRow.appendChild(th);
-  });
-  thead.appendChild(headRow);
-  table.appendChild(thead);
+    const details = document.createElement('details');
+    details.className = 'hour-group';
 
-  // Table body
-  const tbody = document.createElement('tbody');
-  data.forEach(entry => {
-    const row = document.createElement('tr');
-    fields.forEach(f => {
-      const td = document.createElement('td');
-      let val = entry[f.key];
-      if (typeof val === 'number') {
-        val = val.toFixed(2);
-      }
-      td.textContent = val ?? '-';
-      row.appendChild(td);
+    const summary = document.createElement('summary');
+    summary.textContent = `${hour}:00 – ${hour}:59`;;
+    details.appendChild(summary);
+
+    const table = document.createElement('table');
+    table.className = 'hour-table';
+
+    // Kopfzeile
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+      <tr>
+        <th>Zeit</th><th>Temp (°C)</th><th>Feuchte (%)</th>
+        <th>Druck</th><th>Helligk. (lx)</th><th>UV</th>
+        <th>Wind (km/h)</th><th>Richtung</th><th>Regen</th>
+      </tr>`;
+    table.appendChild(thead);
+
+    // Body
+    const tbody = document.createElement('tbody');
+    entries.forEach(e => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${e.time}</td>
+        <td>${e.temperature.toFixed(1)}</td>
+        <td>${e.humidity.toFixed(1)}</td>
+        <td>${e.pressure.toFixed(1)}</td>
+        <td>${e.light.toFixed(0)}</td>
+        <td>${e.UVIndex.toFixed(1)}</td>
+        <td>${e.windspeed.toFixed(1)}</td>
+        <td>${e.windDirection}</td>
+        <td>${e.rain}</td>`;
+      tbody.appendChild(tr);
     });
-    tbody.appendChild(row);
+    table.appendChild(tbody);
+
+    details.appendChild(table);
+    container.appendChild(details);
   });
-  table.appendChild(tbody);
+  
 
-  container.innerHTML = '';
-  container.appendChild(table);
-
-  container.innerHTML = '';
-  container.appendChild(table);
-
-  // 🔽 Download-Button einfügen
-  const footerDiv = document.createElement('div');
-  footerDiv.className = 'detail-footer';
-
+  // 3) Download‑Button einfügen
   const downloadBtn = document.createElement('button');
   downloadBtn.className = 'download-btn';
   downloadBtn.textContent = 'Herunterladen';
-
-  footerDiv.appendChild(downloadBtn);
-  container.appendChild(footerDiv);
-
-  downloadBtn.addEventListener('click', () => {
-    exportToExcel(data); // <- `data` ist das Array mit Messwerten
-  });
-
-
+  downloadBtn.addEventListener('click', () => exportToExcel(data));
+  footer.appendChild(downloadBtn);
 }
 
 
@@ -724,39 +838,11 @@ function getTodaysData(data) {
   return data.filter(entry => entry.timestamp.startsWith(todayStr));
 }
 
+
 function renderHistoryDetailData(dateISO, location) {
   const container = document.getElementById('history-detail-data');
   const detailsBox = document.getElementById('history-details');
-
-  const filtered = allData.filter(e => {
-    let [d] = e.timestamp.split(' ');
-    if (d.includes('.')) {
-      const [dd, mm, yy] = d.split('.');
-      d = `${yy}-${mm}-${dd}`;
-    }
-    return d === dateISO && e.location === location;
-  });
-
-  if (filtered.length === 0) {
-    container.innerHTML = '<p style="padding:1rem;">Keine Daten für diesen Tag verfügbar.</p>';
-    detailsBox.classList.add('hidden');
-    return;
-  }
-
-
-  detailsBox.classList.remove('hidden');
-
-  const fields = [
-    { key: 'timestamp', label: 'Zeit' },
-    { key: 'temperature', label: 'Temperatur (°C)' },
-    { key: 'humidity', label: 'Luftfeuchtigkeit (%)' },
-    { key: 'pressure', label: 'Luftdruck (hPa)' },
-    { key: 'light', label: 'Helligkeit (lx)' },
-    { key: 'UVIndex', label: 'UV-Index' },
-    { key: 'windspeed', label: 'Windgeschw. (km/h)' },
-    { key: 'windDirection', label: 'Windrichtung (°)' },
-    { key: 'rain', label: 'Regen' }
-  ];
+  container.innerHTML = '';    // alten Inhalt löschen
 
   const spanElement = document.getElementById("spanElement");
   let ort = location;
@@ -768,48 +854,85 @@ function renderHistoryDetailData(dateISO, location) {
 
   spanElement.innerHTML = spanText;
 
-  const table = document.createElement('table');
-  table.className = 'detail-table';
-
-  const thead = document.createElement('thead');
-  const headRow = document.createElement('tr');
-  fields.forEach(f => {
-    const th = document.createElement('th');
-    th.textContent = f.label;
-    headRow.appendChild(th);
+  // Filtere nur Einträge für das Datum + Ort
+  const filtered = allData.filter(e => {
+    let [d] = e.timestamp.split(' ');
+    if (d.includes('.')) {
+      const [dd, mm, yy] = d.split('.');
+      d = `${yy}-${mm}-${dd}`;
+    }
+    return d === dateISO && e.location === location;
   });
-  thead.appendChild(headRow);
-  table.appendChild(thead);
 
-  const tbody = document.createElement('tbody');
-  filtered.forEach(entry => {
-    const row = document.createElement('tr');
-    fields.forEach(f => {
-      const td = document.createElement('td');
-      let val = entry[f.key];
-      if (typeof val === 'number') {
-        val = val.toFixed(2);
-      }
-      td.textContent = val ?? '-';
-      row.appendChild(td);
+  if (!filtered.length) {
+    detailsBox.classList.add('hidden');
+    container.innerHTML = '<p style="padding:1rem;">Keine Daten für diesen Tag.</p>';
+    return;
+  }
+
+  detailsBox.classList.remove('hidden');
+
+  // 1) Gruppiere nach Stunde
+  const groups = filtered.reduce((acc, e) => {
+    const time = e.timestamp.split(' ')[1];    // "HH:MM:SS"
+    const hour = time.slice(0,2);               // "HH"
+    if (!acc[hour]) acc[hour] = [];
+    acc[hour].push({ ...e, time });
+    return acc;
+  }, {});
+
+  // 2) Erzeuge Accordion pro Stunde
+  Object.keys(groups).sort().forEach(hour => {
+    const entries = groups[hour];
+
+    const details = document.createElement('details');
+    details.className = 'hour-group';
+
+    const summary = document.createElement('summary');
+    summary.textContent = `${hour}:00 – ${hour}:59`;
+    details.appendChild(summary);
+
+    const table = document.createElement('table');
+    table.className = 'hour-table';
+
+    // Kopfzeile
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+      <tr>
+        <th>Zeit</th><th>Temp</th><th>Feuchte</th>
+        <th>Druck</th><th>Helligk.</th><th>UV</th>
+        <th>Wind</th><th>Richtung</th><th>Regen</th>
+      </tr>`;
+    table.appendChild(thead);
+
+    // Body
+    const tbody = document.createElement('tbody');
+    entries.forEach(e => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${e.time}</td>
+        <td>${e.temperature.toFixed(1)}</td>
+        <td>${e.humidity.toFixed(1)}</td>
+        <td>${e.pressure.toFixed(1)}</td>
+        <td>${e.light.toFixed(0)}</td>
+        <td>${e.UVIndex.toFixed(1)}</td>
+        <td>${e.windspeed.toFixed(1)}</td>
+        <td>${e.windDirection}</td>
+        <td>${e.rain}</td>`;
+      tbody.appendChild(tr);
     });
-    tbody.appendChild(row);
+    table.appendChild(tbody);
+
+    details.appendChild(table);
+    container.appendChild(details);
   });
-  table.appendChild(tbody);
 
-  container.innerHTML = '';
-  container.appendChild(table);
-
-  // 🔽 Download-Button einfügen
-  const footerDiv = document.createElement('div');
-  footerDiv.className = 'history-detail-footer';
-
+  // 3) Download‑Button in history-footer einfügen
+  const historyFooter = document.getElementById('history-detail-footer');
+  historyFooter.innerHTML = '';
   const downloadBtn = document.createElement('button');
-  downloadBtn.className = 'history-download-btn';
+  downloadBtn.className = 'download-btn';
   downloadBtn.textContent = 'Herunterladen';
-
-  footerDiv.appendChild(downloadBtn);
-  container.appendChild(footerDiv);
 
   let filename = `messdaten ${day}.${month}.${year}.xlsx`;
 
@@ -817,7 +940,7 @@ function renderHistoryDetailData(dateISO, location) {
     exportToExcel(filtered, filename); // <- `data` ist das Array mit Messwerten
   });
 
-
+  historyFooter.appendChild(downloadBtn);
 }
 
 
@@ -872,6 +995,7 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('DOMContentLoaded', async ()=> {
   await fetchData();
   populateLocationSelect();
+  initEmptyHistoryChart();
 
   const locSel   = document.getElementById('location-select');
   const monSel   = document.getElementById('month-select');
@@ -903,6 +1027,3 @@ document.addEventListener('DOMContentLoaded', async ()=> {
   locSel.selectedIndex = 0;
   locSel.dispatchEvent(new Event('change'));
 });
-
-
-//Chart anpassung bei starken Änderungen. 
