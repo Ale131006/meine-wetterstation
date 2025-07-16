@@ -514,23 +514,65 @@ svg{
 }
 
 
-.detail-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 1rem;
-  font-family: 'Inter', sans-serif;
+
+body {
+  padding-bottom: 4rem;
+}
+
+.detail-footer, .history-detail-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 1rem;
+}
+
+.download-btn, .history-download-btn {
+  background-color: #0f172a;
+  color: white;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 6px;
   font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
-.detail-table th, .detail-table td {
-  border: 1px solid #1f2937;
-  padding: 0.5rem 0.75rem;
-  text-align: left;
+.download-btn:hover, .history-download-btn:hover {
+  background-color: #1e293b;
 }
 
-.detail-table th {
-  background-color: #f3f4f6;
-  font-weight: 600;
+#site-footer {
+  padding: 0.5rem 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+  width: 100%;
+  transition: all 0.3s ease;
+}
+
+/* Standard: Fixiert am unteren Bildschirmrand */
+#site-footer.fixed {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+}
+
+/* Wenn Tabelle ausgeklappt: normale Position */
+#site-footer.unfixed {
+  position: static;
+}
+
+/* Damit der Footer immer unten klebt */
+footer {
+  margin-top: 2rem;
+  /*border-top: 1px solid #e5e7eb;*/
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 1rem 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: #3d3d3d;
+  z-index: 100;
 }
 
 
