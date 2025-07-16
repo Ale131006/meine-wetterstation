@@ -403,7 +403,7 @@ function drawHistoryFor(location, dateISO, metricName) {
     if (dynMin < 10) { finalMin = -5; finalMax = 25; }
     else if (dynMax > 35) { finalMin = 15; finalMax = 40; }
   }
-  if (metricName === 'Helligkeit') {
+  if (metricName === 'Beleuchtungsstärke') {
     finalMin = 0;
     if (dynMax > 50000) finalMax = 75000;
     else if (dynMax > 10000) finalMax = 50000;
@@ -571,9 +571,9 @@ const metricConfig = {
     min: 980, max: 1040, stepSize: 10,
     aggregate: arr => (arr.reduce((a,b)=>a+b,0) / arr.length)
   },
-  Helligkeit: {
+  Beleuchtungsstärke: {
     field: 'light',
-    label: 'Helligkeit (lux)',
+    label: 'Beleuchtungsstärke (lux)',
     min: 0, max: 20000, stepSize: 2000,
     aggregate: arr => arr.reduce((a,b)=>a+b,0) / arr.length
   },
@@ -619,7 +619,7 @@ const chartColors = {
   Temperatur: 'rgba(234, 88, 12, 1)',
   Luftfeuchtigkeit: 'rgba(37, 99, 235, 1)',
   Luftdruck: 'rgba(124, 58, 237, 1)',
-  Helligkeit: 'rgba(202, 138, 4, 1)',
+  Beleuchtungsstärke: 'rgba(202, 138, 4, 1)',
   'UV-Index': 'rgba(220, 38, 38, 1)',
   Windgeschwindigkeit: 'rgba(22, 163, 74, 1)',
   Regen: 'rgba(3, 105, 161, 1)'
@@ -662,8 +662,8 @@ function renderMetricChart(metricName, offsetDays = 0) {
     }
   }
 
-  // Für Helligkeit
-  if (metricName === 'Helligkeit') {
+  // Für Beleuchtungsstärke
+  if (metricName === 'Beleuchtungsstärke') {
     if (dynMax > 10000 && dynMax <= 50000) {
       finalMax = 50000;
     } else if (dynMax > 50000) {
@@ -789,9 +789,9 @@ function renderDetailData(data) {
     const thead = document.createElement('thead');
     thead.innerHTML = `
       <tr>
-        <th>Zeit</th><th>Temp (°C)</th><th>Feuchte (%)</th>
-        <th>Druck</th><th>Helligk. (lx)</th><th>UV</th>
-        <th>Wind (km/h)</th><th>Richtung</th><th>Regen</th>
+        <th>Zeit</th><th>Temperatur (°C)</th><th>Luftfeuchtigkeit (%)</th>
+        <th>Luftdruck (hPa)</th><th>Beleuchtungsstärke (lx)</th><th>UV-Index</th>
+        <th>Windgeschwindigkeit (km/h)</th><th>Windrichtung</th><th>Regen</th>
       </tr>`;
     table.appendChild(thead);
 
@@ -899,9 +899,9 @@ function renderHistoryDetailData(dateISO, location) {
     const thead = document.createElement('thead');
     thead.innerHTML = `
       <tr>
-        <th>Zeit</th><th>Temp</th><th>Feuchte</th>
-        <th>Druck</th><th>Helligk.</th><th>UV</th>
-        <th>Wind</th><th>Richtung</th><th>Regen</th>
+        <th>Zeit</th><th>Temperatur (°C)</th><th>Luftfeuchtigkeit (%)</th>
+        <th>Luftdruck (hPa)</th><th>Beleuchtungsstärke (lx)</th><th>UV-Index</th>
+        <th>Windgeschwindigkeit (km/h)</th><th>Windrichtung</th><th>Regen</th>
       </tr>`;
     table.appendChild(thead);
 
@@ -988,8 +988,6 @@ document.addEventListener('DOMContentLoaded', () => {
   startAutoRefresh()
   renderMetricChart(select.value, 0);
 
-  // TODO: Fetch und Render Historische Daten
-  // TODO: Aufbau des Charts mit Chart.js oder ähnlichem
 });
 
 document.addEventListener('DOMContentLoaded', async ()=> {
