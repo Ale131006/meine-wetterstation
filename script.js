@@ -4,6 +4,12 @@ if (!CSV_URL) {
   window.CSV_URL = CSV_URL;
 }
 
+if (location.hostname === "ale131006.github.io") {
+  const base = document.createElement("base");
+  base.href = "/meine-wetterstation/";
+  document.head.appendChild(base);
+}
+
 let allData = [];
 
 const temperatureElement = document.getElementById('temp-value');
