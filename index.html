@@ -4,8 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Mobile Wetterstation</title>
-    <link rel="icon" type="image/png" href="meine-wetterstation/assets/weather.png">
+    <link rel="icon" type="image/png" href="/assets/weather.png">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -152,19 +153,30 @@
               <option>Windgeschwindigkeit</option>
               <option>Regen</option>
             </select>
+          
           </div>
-          <canvas id="dailyChart" style="max-height: 300px;"></canvas>
+          
+        <canvas id="dailyChart" style="max-height: 300px;"></canvas>
         </div>
-        <details class="detail-container">
-          <summary class="detail-summary">
-            <span class="toggle-icon">▼</span>
-            <span id="detail-summary-text">Daten vom 15.07.2025 – Zürich</span>
-          </summary>
-          <div class="detail-body" id="detail-data">
-            <!-- Hier fügen wir gleich per JS den Inhalt ein -->
-          </div>
-        </details>
-      </div>
+
+          <details class="detail-container">
+            <summary class="detail-summary">
+              <span class="toggle-icon">▼</span>
+              <span id="detail-summary-text">Daten vom 15.07.2025 – Zürich</span>
+            </summary>
+
+            <div class="detail-body" id="detail-data">
+              <!-- Tabelle wird per JS eingefügt -->
+            </div>
+
+            <!-- Der Button erscheint direkt unter der Tabelle -->
+            <div class="detail-footer" id="detail-footer">
+              <!-- Button wird hier per JS eingefügt -->
+            </div>
+          </details>
+          
+        </div>
+        
     </section>
 
     <section id="history-section" class="section hidden">
@@ -192,7 +204,7 @@
         <option>Windgeschwindigkeit</option>
         <option>Regen</option>
       </select>
-    </label>
+      </label>
       </div>
       <canvas id="historyChart" width="800" height="275" ></canvas>
       <details id="history-details" class="data-details detail-container">
@@ -203,7 +215,22 @@
         <div id="history-detail-data" class="detail-body">
           <!-- Hier fügen wir gleich per JS den Inhalt ein -->
         </div>
+        <div class="history-detail-footer" id="history-detail-footer">
+              <!-- Button wird hier per JS eingefügt -->
+            </div>
       </details>
+    </section>
+
+    <footer id="site-footer">
+      <p>
+        created by <a href="https://github.com/ale131006" target="_blank" rel="noopener" style="color:#3b82f6; text-decoration:none;">
+          Alessandro
+        </a>
+      </p>
+    </footer>
+
+
+
     <script src="script.js"></script>
   </body>
 </html>

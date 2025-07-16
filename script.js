@@ -19,6 +19,29 @@ const locationElement = document.getElementById("location");
 const coords = document.getElementById("coords");
 
 
+const detailsElements = document.querySelectorAll('.detail-container');
+const footer = document.getElementById('site-footer');
+
+// Nur wenn ein Footer existiert
+if (footer) {
+  footer.classList.add('fixed'); // Startzustand
+
+  detailsElements.forEach(details => {
+    details.addEventListener('toggle', () => {
+      const anyOpen = Array.from(detailsElements).some(d => d.open);
+      if (anyOpen) {
+        footer.classList.remove('fixed');
+        footer.classList.add('unfixed');
+      } else {
+        footer.classList.remove('unfixed');
+        footer.classList.add('fixed');
+      }
+    });
+  });
+}
+
+
+
 function get24HourLabels() {
   return Array.from({ length: 24 }, (_, h) =>
     h.toString().padStart(2, '0') + ':00'
@@ -156,6 +179,80 @@ function getUniqueMonths(data, location) {
   });
   return Array.from(months).sort();
 }
+
+function exportToExcel(dataArray, filename = 'messdaten.xlsx') {
+  // Schritt 1: JSON zu Worksheet konvertieren
+  const worksheet = XLSX.utils.json_to_sheet(dataArray);
+
+  // Schritt 2: Worksheet zu einer neuen Arbeitsmappe hinzufügen
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Daten');
+
+  // Schritt 3: Arbeitsmappe exportieren
+  XLSX.writeFile(workbook, filename);
+}
+
+
+/**
+ * Aggregiert alle Messwerte pro Tag und berechnet für jede Metrik das Mittel.
+ * @param {Array} data - allData–Array mit timestamp‑Objekten.
+ * @returns {Array} - Array mit Einträgen { date, temperature, humidity, pressure, light, UVIndex, windspeed, rain, windDirection, ort, altitude }
+ */
+function aggregateByDay(data) {
+  const buckets = {}; // { 'YYYY-MM-DD': { sums..., count } }
+
+  data.forEach(d => {
+    // Datum-String im ISO‑Format extrahieren
+    const isoDate = d.timestamp.split(' ')[0]
+                      .split('.').reverse().join('-'); // DD.MM.YYYY → YYYY-MM-DD
+    if (!buckets[isoDate]) {
+      buckets[isoDate] = {
+        sumTemp:0, sumHum:0, sumPres:0, sumLux:0,
+        sumUV:0, sumWind:0, sumRain:0, count:0,
+        // windDirection-Mittel als Vektor
+        sumWx:0, sumWy:0
+      };
+    }
+    const b = buckets[isoDate];
+    b.sumTemp += d.temperature;
+    b.sumHum  += d.humidity;
+    b.sumPres += d.pressure;
+    b.sumLux  += d.light;
+    b.sumUV   += d.UVIndex;
+    b.sumWind += d.windspeed;
+    b.sumRain += (d.rain === 'Ja' ? 1 : 0);
+
+    // Windrichtung als Vektor
+    const rad = (parseFloat(d.windDirection) || 0) * Math.PI/180;
+    b.sumWx  += Math.cos(rad);
+    b.sumWy  += Math.sin(rad);
+
+    b.count++;
+  });
+
+  // In Array umwandeln und Mittelwerte berechnen
+  return Object.keys(buckets).sort().map(date => {
+    const b = buckets[date];
+    const avgDir = Math.atan2(b.sumWy/b.count, b.sumWx/b.count) * 180/Math.PI;
+    return {
+      date,
+      temperature: b.sumTemp / b.count,
+      humidity:    b.sumHum  / b.count,
+      pressure:    b.sumPres / b.count,
+      light:       b.sumLux  / b.count,
+      UVIndex:     b.sumUV   / b.count,
+      windspeed:   b.sumWind / b.count,
+      rain:        b.sumRain / b.count >= 0.5 ? 'Ja' : 'Nein',
+      windDirection: ((avgDir + 360) % 360).toFixed(0),
+      // Ort und Höhe kannst du aus dem ersten Eintrag pro Tag ziehen,
+      // oder weglassen, da sie tendenziell konstant sind.
+    };
+  });
+}
+
+
+
+
 function populateMonthSelect(location) {
   const sel = document.getElementById('month-select');
   sel.innerHTML = '';
@@ -217,31 +314,52 @@ function getDailyMetric(data, field, dateISO) {
 let historyChart;
 function drawHistoryFor(location, dateISO, metric) {
   const cfg = metricConfig[metric];
-  const data = getDailyMetric(allData, cfg.field, dateISO);
-  const ctx  = document.getElementById('historyChart').getContext('2d');
+  if (!cfg) {
+    console.error(`Unbekannte Metrik: ${metric}`);
+    return;
+  }
+
+  // Daten für den gewählten Tag und die gewählte Metrik
+  const data = getHourlyMetric(allData, cfg.field, dateISO, cfg);
+  const labels = get24HourLabels();
+
+  // Chart neu zeichnen
+  const ctx = document.getElementById('historyChart').getContext('2d');
   if (historyChart) historyChart.destroy();
   historyChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: get24HourLabels(),
+      labels,
       datasets: [{
         label: `${cfg.label} am ${dateISO}`,
-        data, spanGaps:true, tension:0.3,
-        borderColor:chartColors[metric], 
-        backgroundColor:'rgba(59,130,246,0.2)', 
-        pointRadius:3
+        data,
+        spanGaps: true,
+        tension: 0.3,
+        borderColor: chartColors[metric],
+        backgroundColor: 'rgba(59,130,246,0.2)',
+        pointRadius: 3
       }]
     },
     options: {
       scales: {
-        x:{ title:{display:true,text:'Stunde'} },
-        y:{ min:cfg.min, max:cfg.max, ticks:{stepSize:cfg.stepSize} }
+        x: { title: { display: true, text: 'Stunde' } },
+        y: {
+          title: { display: true, text: cfg.label },
+          min: cfg.min,
+          max: cfg.max,
+          ticks: { stepSize: cfg.stepSize }
+        }
       },
-      plugins:{ legend:{display:false}, tooltip:{mode:'index',intersect:false} }, 
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: 'index', intersect: false }
+      },
       responsive: true,
       maintainAspectRatio: false
     }
   });
+
+  // Details-Tabelle aktualisieren
   renderHistoryDetailData(dateISO, location);
 }
 
@@ -290,7 +408,6 @@ async function fetchData(){
     console.error('Error fetching data:', error);
     };
 
-
     updateLiveStatus();
 }
 
@@ -311,6 +428,7 @@ function renderLive(){
   else if(latest.rain === "No"){
     latest.rain = "Nein";
   }
+
 
 
   temperatureElement.textContent = latest.temperature.toFixed(2);
@@ -335,9 +453,12 @@ function startAutoRefresh() {
 
   setInterval(async () => {
   await fetchData();
+  renderLive();
   renderMetricChart(document.getElementById('metric-select').value, 0);
   updateLiveStatus();
-}, 5 * 60 * 1000);}
+  const todaysData = getTodaysData(allData);
+  renderDetailData(todaysData, 'detail-data');
+}, 2 * 60 * 1000);}
 
 
 
@@ -345,7 +466,7 @@ const metricConfig = {
   Temperatur: {
     field: 'temperature',
     label: 'Temperatur (°C)',
-    min: 10, max: 35, stepSize: 5,
+    min: -5, max: 35, stepSize: 5,
     aggregate: arr => arr.reduce((a,b)=>a+b,0) / arr.length
   },
   Luftfeuchtigkeit: {
@@ -363,7 +484,7 @@ const metricConfig = {
   Helligkeit: {
     field: 'light',
     label: 'Helligkeit (lux)',
-    min: 0, max: 10000, stepSize: 2000,
+    min: 0, max: 75000, stepSize: 2000,
     aggregate: arr => arr.reduce((a,b)=>a+b,0) / arr.length
   },
   'UV-Index': {
@@ -564,6 +685,23 @@ function renderDetailData(data, containerId) {
   container.innerHTML = '';
   container.appendChild(table);
 
+  container.innerHTML = '';
+  container.appendChild(table);
+
+  // 🔽 Download-Button einfügen
+  const footerDiv = document.createElement('div');
+  footerDiv.className = 'detail-footer';
+
+  const downloadBtn = document.createElement('button');
+  downloadBtn.className = 'download-btn';
+  downloadBtn.textContent = 'Herunterladen';
+
+  footerDiv.appendChild(downloadBtn);
+  container.appendChild(footerDiv);
+
+  downloadBtn.addEventListener('click', () => {
+    exportToExcel(data); // <- `data` ist das Array mit Messwerten
+  });
 
 
 }
@@ -620,7 +758,7 @@ function renderHistoryDetailData(dateISO, location) {
   let month = dateISO.split("-")[1];
   let day = dateISO.split("-")[2];
 
-  let spanText = `Rohdaten vom ${year}.${month}.${day} - ${ort}`;
+  let spanText = `Rohdaten vom ${day}.${month}.${year} - ${ort}`;
 
   spanElement.innerHTML = spanText;
 
@@ -655,7 +793,29 @@ function renderHistoryDetailData(dateISO, location) {
 
   container.innerHTML = '';
   container.appendChild(table);
+
+  // 🔽 Download-Button einfügen
+  const footerDiv = document.createElement('div');
+  footerDiv.className = 'history-detail-footer';
+
+  const downloadBtn = document.createElement('button');
+  downloadBtn.className = 'history-download-btn';
+  downloadBtn.textContent = 'Herunterladen';
+
+  footerDiv.appendChild(downloadBtn);
+  container.appendChild(footerDiv);
+
+  let filename = `messdaten ${day}.${month}.${year}.xlsx`;
+
+  downloadBtn.addEventListener('click', () => {
+    exportToExcel(filtered, filename); // <- `data` ist das Array mit Messwerten
+  });
+
+
 }
+
+
+
 
 
 
@@ -693,6 +853,8 @@ document.addEventListener('DOMContentLoaded', () => {
   select.addEventListener('change', () => {
     renderMetricChart(select.value, 0);
   });
+
+  const panel = document.getElementById('detail-panel');
 
   startAutoRefresh()
   renderMetricChart(select.value, 0);
@@ -738,5 +900,3 @@ document.addEventListener('DOMContentLoaded', async ()=> {
 
 
 //Chart anpassung bei starken Änderungen. 
-//Nicht gleiche Daten von heute, (History chart ist noch nicht auf Durchschnitt angepasst)
-//immer nur 2tletste messung nicht letzte Messung
