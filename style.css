@@ -12,6 +12,29 @@ body {
   padding-bottom: 4rem;
 }
 
+/* Tabellen-Wrapper für horizontalen Scroll */
+.detail-body table,
+.detail-table,
+.hour-group .hour-table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; 
+}
+
+
+.detail-body table::-webkit-scrollbar,
+.detail-table::-webkit-scrollbar,
+.hour-group .hour-table::-webkit-scrollbar {
+  height: 6px;
+}
+.detail-body table::-webkit-scrollbar-thumb,
+.detail-table::-webkit-scrollbar-thumb,
+.hour-group .hour-table::-webkit-scrollbar-thumb {
+  background-color: rgba(0,0,0,0.2);
+  border-radius: 3px;
+}
+
 .header { 
   display: flex; 
   justify-content: space-between; 
@@ -789,6 +812,7 @@ footer {
 
   .chart-section {
     height: 250px;
+    margin-bottom: 5.5rem;
   }
 }
 
@@ -839,10 +863,12 @@ footer {
 
   .chart-section {
     padding: 0.5rem;
+    height: 200px;
+    margin-bottom: 5rem;
   }
 
   canvas {
-    max-height: 240px !important;
+    max-height: 180px !important;
   }
 
   .tabs {
@@ -864,5 +890,16 @@ footer {
     font-size: 0.9rem;
     width: 100%;
     max-width: 100%;
+  }
+
+  .detail-body,
+  .data-details {
+    padding: 0;
+    margin: 0 1rem; /* ragt in die Ränder, damit man scrollen kann */
+    margin-top: 1rem;
+  }
+
+  .detail-container {
+    margin-top: 1rem; 
   }
 }
