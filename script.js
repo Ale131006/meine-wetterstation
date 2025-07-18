@@ -623,7 +623,10 @@ async function fetchData(){
         windDirection = "Süden";
       }else if(windDirection === "Sdwest"){
         windDirection = "Südwest";
+      }else if(windDirection === "Sdost"){
+        windDirection = "Südosten";
       }
+
       if(rain === "No"){
         rain = "Nein";
       }
