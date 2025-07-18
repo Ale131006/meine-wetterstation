@@ -577,6 +577,9 @@ function drawHistoryFor(location, dateISO, metricName) {
                 const idx = Math.round(v / 45) % windDirLabels.length;
                 return windDirLabels[idx];
               }
+              if (["Beleuchtungsstärke", "UV-Index"].includes(metricName)) {
+                  return Number(v.toFixed(0));
+                }
               return v;
             }
           },
@@ -875,6 +878,9 @@ function renderMetricChart(metricName, offsetDays = 0) {
                 const idx = Math.round(val / 45) % 8;
                 return windDirLabels[idx];
               }
+              if (["Beleuchtungsstärke", "UV-Index"].includes(metricName)) {
+                  return Number(val.toFixed(0));
+                }
               return val;
             }
           },
