@@ -40,6 +40,107 @@ if (footer) {
   });
 }
 
+// Windrichtungs‑Labels in 45°-Schritten
+const windDirLabels = ['Norden','Nordosten','Osten','Südosten','Süden','Südwesten','Westen','Nordwesten'];
+const windDirMap = {
+    'NORD':       0,
+    'NORDEN':     0,
+    'NORDOST':    45,
+    'NORDOSTEN':  45,
+    'OST':        90,
+    'OSTEN':      90,
+    'SÜDOST':     135,
+    'SUEDOST':    135,
+    'SÜDOSTEN':   135,
+    'SUEDOSTEN':  135,
+    'SÜD':        180,
+    'SUED':       180,
+    'SÜDEN':      180,
+    'SUEDEN':     180,
+    'SÜDWEST':    225,
+    'SUEDWEST':   225,
+    'SÜDWESTEN':  225,
+    'SUEDWESTEN': 225,
+    'WEST':       270,
+    'WESTEN':     270,
+    'NORDWEST':   315,
+    'NORDWESTEN': 315
+};
+
+
+
+function getHourlyWindDir(allData, targetDateStr) {
+  // 1) Mapping: Normalisierte Keys → Grad
+  const windDirMap = {
+    'NORD':       0,
+    'NORDEN':     0,
+    'NORDOST':    45,
+    'NORDOSTEN':  45,
+    'OST':        90,
+    'OSTEN':      90,
+    'SÜDOST':     135,
+    'SUEDOST':    135,
+    'SÜDOSTEN':   135,
+    'SUEDOSTEN':  135,
+    'SÜD':        180,
+    'SUED':       180,
+    'SÜDEN':      180,
+    'SUEDEN':     180,
+    'SÜDWEST':    225,
+    'SUEDWEST':   225,
+    'SÜDWESTEN':  225,
+    'SUEDWESTEN': 225,
+    'WEST':       270,
+    'WESTEN':     270,
+    'NORDWEST':   315,
+    'NORDWESTEN': 315
+  };
+
+  // 2) 24 leere Bucket-Arrays
+  const buckets = Array.from({ length: 24 }, () => []);
+
+  allData.forEach(e => {
+    // Datum ins ISO-Format bringen
+    let [d, t] = e.timestamp.split(' ');
+    if (d.includes('.')) {
+      const [dd, mm, yy] = d.split('.');
+      d = `${yy}-${mm}-${dd}`;
+    }
+    if (d !== targetDateStr) return;
+
+    const hour = parseInt(t, 10);
+
+    // Versuche erst numerisch
+    let deg = parseFloat(e.windDirection);
+    if (isNaN(deg)) {
+      // Normalisiere Text: Groß, ohne Leerzeichen, Umlaute ue/oe/ae
+      let key = e.windDirection.trim()
+        .toUpperCase()
+        .replace(/Ü/g, 'UE')
+        .replace(/Ö/g, 'OE')
+        .replace(/Ä/g, 'AE')
+        .replace(/\s+/g, '');
+      deg = windDirMap[key] ?? null;
+    }
+
+    if (deg != null) {
+      buckets[hour].push(deg);
+    }
+  });
+
+  // 3) Vektor‑Mittel pro Stunde
+  return buckets.map(arr => {
+    if (arr.length === 0) return null;
+    let x = 0, y = 0;
+    arr.forEach(d => {
+      const r = d * Math.PI/180;
+      x += Math.cos(r);
+      y += Math.sin(r);
+    });
+    const avg = Math.atan2(y/arr.length, x/arr.length);
+    return (avg * 180/Math.PI + 360) % 360;
+  });
+}
 
 
 function get24HourLabels() {
@@ -359,12 +460,23 @@ function initEmptyHistoryChart() {
       maintainAspectRatio: false
     }
   });
+
+  console.log(historyChart); // Debug: Chart-Objekt prüfenS
+
 }
 
 
 
 
 
+/**
+ * Zeichnet im History-Tab den Stundenverlauf für eine gewählte Metrik.
+ * Unterstützt numerische Metriken und Windrichtung als Grad → Himmelsrichtung.
+ *
+ * @param {string} location   gewählter Standort
+ * @param {string} dateISO    Datum im Format "YYYY-MM-DD"
+ * @param {string} metricName Name der Metrik (z.B. "Temperatur", "Windrichtung")
+ */
 function drawHistoryFor(location, dateISO, metricName) {
   const cfg = metricConfig[metricName];
   if (!cfg) {
@@ -372,84 +484,125 @@ function drawHistoryFor(location, dateISO, metricName) {
     return;
   }
 
-  // 1) Filtern nach Datum+Ort
+  if (window.historyChart && typeof window.historyChart.destroy === 'function') {
+  window.historyChart.destroy();
+  }
+
+  // 1) Filtere nach Datum+Ort
   const filtered = allData.filter(e => {
     let [d] = e.timestamp.split(' ');
     if (d.includes('.')) {
-      const [dd,mm,yy] = d.split('.');
+      const [dd, mm, yy] = d.split('.');
       d = `${yy}-${mm}-${dd}`;
     }
     return d === dateISO && e.location === location;
   });
 
   if (filtered.length === 0) {
-    // ggf. Chart löschen oder Meldung
+    // Meldung oder Chart leeren
+    if (historyChart) historyChart.destroy();
     return;
   }
 
-  // 2) Stundenweise Daten vorbereiten
-  const data = getHourlyMetric(allData, cfg.field, dateISO, cfg);
-  const labels = get24HourLabels();
+  // 2) Daten je Stunde ermitteln
+  const labels  = get24HourLabels(); // ["00:00", …]
+  const isWind  = metricName === 'Windrichtung';
 
-  // 3) Dynamische Min/Max berechnen
-  const { min: dynMin, max: dynMax } = computeScaleRange(data);
+  // numerisch oder Wind
+  const dataVals = isWind
+    ? getHourlyWindDir(filtered, dateISO)
+    : getHourlyMetric(filtered, cfg.field, dateISO, cfg);
 
-  // 4) Standard‑Bereich aus config
-  let finalMin = cfg.min;
-  let finalMax = cfg.max;
-
-  // 5) Schwellen‑Logik analog zum Daily‑Chart
-  if (metricName === 'Temperatur') {
-    if (dynMin < 10) { finalMin = -5; finalMax = 25; }
-    else if (dynMax > 35) { finalMin = 15; finalMax = 40; }
-  }
-  if (metricName === 'Beleuchtungsstärke') {
-    finalMin = 0;
-    if (dynMax > 50000) finalMax = 75000;
-    else if (dynMax > 10000) finalMax = 50000;
-  }
-  if (metricName === 'Windgeschwindigkeit') {
-    finalMin = 0;
-    if (dynMax > 40) finalMax = 80;
-    else if (dynMax > 20) finalMax = 50;
+  // 3) dynMin/dynMax nur bei numerisch
+  let dynMin=0, dynMax=0;
+  if (!isWind) {
+    ({ min: dynMin, max: dynMax } = computeScaleRange(dataVals));
   }
 
-  // 6) Chart zeichnen / updaten
+  // 4) Default-Bereiche
+  let finalMin = isWind ? 0 : cfg.min;
+  let finalMax = isWind ? 360 : cfg.max;
+  let stepSize  = isWind ? 45  : cfg.stepSize;
+  const yLabel  = isWind ? 'Windrichtung' : cfg.label;
+
+  // 5) Speziallogik numerisch
+  if (!isWind) {
+    if (metricName === 'Temperatur') {
+      if (dynMin < 10)      { finalMin = -5; finalMax = 25; }
+      else if (dynMax > 35) { finalMin = 15; finalMax = 40; }
+    }
+    if (metricName === 'Beleuchtungsstärke') {
+      finalMin = 0;
+      if (dynMax > 50000)      finalMax = 75000;
+      else if (dynMax > 10000) finalMax = 50000;
+    }
+    if (metricName === 'Windgeschwindigkeit') {
+      finalMin = 0;
+      if (dynMax > 40)       finalMax = 80;
+      else if (dynMax > 20)  finalMax = 50;
+    }
+  }
+
+  // 6) Chart zeichnen/aktualisieren
   const ctx = document.getElementById('historyChart').getContext('2d');
-  console.log(ctx);
   if (historyChart) historyChart.destroy();
   historyChart = new Chart(ctx, {
     type: 'line',
     data: {
       labels,
       datasets: [{
-        label: cfg.label + ' am ' + dateISO,
-        data,
+        label: isWind
+          ? `Windrichtung am ${dateISO}`
+          : `${cfg.label} am ${dateISO}`,
+        data: dataVals,
         spanGaps: true,
-        tension: 0.3,
+        tension: isWind ? 0 : 0.3,
         borderColor: chartColors[metricName],
         backgroundColor: 'rgba(59,130,246,0.2)',
-        pointRadius: 3
+        pointRadius: 4
       }]
     },
     options: {
       scales: {
-        x: { title: { display: true, text: 'Stunde' } },
+        x: {
+          title: { display: true, text: 'Stunde' }
+        },
         y: {
           min: finalMin,
           max: finalMax,
-          title: { display: true, text: cfg.label },
-          ticks: { stepSize: cfg.stepSize }
+          ticks: {
+            stepSize,
+            callback: v => {
+              if (isWind) {
+                const idx = Math.round(v / 45) % windDirLabels.length;
+                return windDirLabels[idx];
+              }
+              return v;
+            }
+          },
+          title: { display: true, text: yLabel }
         }
       },
       plugins: {
         legend: { display: false },
-        tooltip: { mode: 'index', intersect: false }
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: isWind ? {
+            label: ctx => {
+              const deg = ctx.raw;
+              const idx = Math.round(deg / 45) % windDirLabels.length;
+              return `Wind: ${windDirLabels[idx]} (${deg.toFixed(0)}°)`;
+            }
+          } : {}
+        }
       },
       responsive: true,
       maintainAspectRatio: false
     }
   });
+
+  // 7) Details-Panel befüllen
   renderHistoryDetailData(dateISO, location);
 }
 
@@ -536,11 +689,6 @@ function renderLive(){
 
 
 function startAutoRefresh() {
-  // Erstmalig laden und rendern
-  fetchData().then();
-  const todaysData = getTodaysData(allData);
-  //renderDetailData(todaysData, 'detail-data');
-
   setInterval(async () => {
   await fetchData();
   renderLive();
@@ -622,6 +770,7 @@ const chartColors = {
   Beleuchtungsstärke: 'rgba(202, 138, 4, 1)',
   'UV-Index': 'rgba(220, 38, 38, 1)',
   Windgeschwindigkeit: 'rgba(22, 163, 74, 1)',
+  Windrichtung: 'rgba(159, 122, 234, 1)',
   Regen: 'rgba(3, 105, 161, 1)'
 };
 
@@ -642,79 +791,106 @@ function renderMetricChart(metricName, offsetDays = 0) {
   today.setDate(today.getDate() + offsetDays);
   const targetDateStr = today.toISOString().slice(0,10);
 
-  // Stundenweise Daten holen
-  const data   = getHourlyMetric(allData, cfg.field, targetDateStr, cfg);
+  // Ist Windrichtung?
+  const isWindDir = metricName === 'Windrichtung';
+
+  // 1) Daten holen
+  let dataVals;
+  if (isWindDir) {
+    dataVals = getHourlyWindDir(allData, targetDateStr); // Array von 0–360 (oder null)
+    console.log(dataVals);
+  } else {
+    dataVals = getHourlyMetric(allData, cfg.field, targetDateStr, cfg);
+  }
+
+  dataVals = isWindDir
+    ? getHourlyWindDir(allData, targetDateStr)
+    : getHourlyMetric(allData, cfg.field, targetDateStr, cfg);
+
   const labels = get24HourLabels();
 
-  // Dynamische Min/Max aus den Daten
-  const { min: dynMin, max: dynMax } = computeScaleRange(data);
+  // 2) dynMin/dynMax nur bei numerischen Metriken
+  let dynMin=0, dynMax=0;
+  if (!isWindDir) {
+    ({ min: dynMin, max: dynMax } = computeScaleRange(dataVals));
+  }
 
-  // Default‑Bereiche aus config
-  let finalMin = cfg.min;
-  let finalMax = cfg.max;
+  // 3) finalMin/Max initial
+  let finalMin = isWindDir ? 0 : cfg.min;
+  let finalMax = isWindDir ? 360 : cfg.max;
+  let stepSize  = isWindDir ? 45 : cfg.stepSize;
+  const yLabel  = isWindDir ? 'Windrichtung' : cfg.label;
 
-  // Spezielle Logik für Temperatur
-  if (metricName === 'Temperatur') {
-    if (dynMin < 10) {
-      finalMin = -5; finalMax = 25;
-    } else if (dynMax > 35) {
-      finalMin = 15; finalMax = 40;
+  // 4) Spezialfälle für non‑wind
+  if (!isWindDir) {
+    if (metricName === 'Temperatur') {
+      if (dynMin < 10)      { finalMin = -5; finalMax = 25; }
+      else if (dynMax > 35) { finalMin = 15; finalMax = 40; }
+    }
+    if (metricName === 'Beleuchtungsstärke') {
+      finalMin = 0;
+      if (dynMax > 50000)      finalMax = 75000;
+      else if (dynMax > 10000) finalMax = 50000;
+    }
+    if (metricName === 'Windgeschwindigkeit') {
+      finalMin = 0;
+      if (dynMax > 40)       finalMax = 80;
+      else if (dynMax > 20)  finalMax = 50;
     }
   }
 
-  // Für Beleuchtungsstärke
-  if (metricName === 'Beleuchtungsstärke') {
-    if (dynMax > 10000 && dynMax <= 50000) {
-      finalMax = 50000;
-    } else if (dynMax > 50000) {
-      finalMax = 75000;
-    }
-    // min bleibt bei 0
-    finalMin = 0;
-  }
-
-  // Für Windgeschwindigkeit
-  if (metricName === 'Windgeschwindigkeit') {
-    if (dynMax > 20 && dynMax <= 40) {
-      finalMax = 50;
-    } else if (dynMax > 40) {
-      finalMax = 80;
-    }
-    // min bleibt bei 0
-    finalMin = 0;
-  }
-
-
-  // Chart rendern
+  // 5) Chart zeichnen
   const ctx = document.getElementById('dailyChart').getContext('2d');
   if (dailyChart) dailyChart.destroy();
   dailyChart = new Chart(ctx, {
-    type: 'line',
+    type: 'line',    // immer Line-Chart
     data: {
       labels,
       datasets: [{
-        label: cfg.label,
-        data,
+        label: yLabel,
+        data: dataVals,
         spanGaps: true,
-        tension: 0.3,
+        tension: isWindDir ? 0 : 0.3,
         borderColor: chartColors[metricName],
         backgroundColor: 'rgba(59,130,246,0.2)',
-        pointRadius: 3
+        pointRadius: 4
       }]
     },
     options: {
       scales: {
-        x: { title: { display: true, text: 'Stunde' } },
+        x: {
+          title: { display: true, text: 'Stunde' }
+        },
         y: {
           min: finalMin,
           max: finalMax,
-          title: { display: true, text: cfg.label },
-          ticks: { stepSize: cfg.stepSize }
+          ticks: {
+            stepSize,
+            callback: val => {
+              if (isWindDir) {
+                // 360 / 8 = 45° pro Schritt
+                const idx = Math.round(val / 45) % 8;
+                return windDirLabels[idx];
+              }
+              return val;
+            }
+          },
+          title: { display: true, text: yLabel }
         }
       },
       plugins: {
         legend: { display: false },
-        tooltip: { mode: 'index', intersect: false }
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: isWindDir ? {
+            label: ctx => {
+              const deg = ctx.raw;
+              const idx = Math.round(deg / 45) % 8;
+              return `Windrichtung: ${windDirLabels[idx]} (${deg.toFixed(0)}°)`;
+            }
+          } : {}
+        }
       },
       responsive: true,
       maintainAspectRatio: false
@@ -726,7 +902,7 @@ function renderMetricChart(metricName, offsetDays = 0) {
 async function start() {
   await fetchData().then(() => {
   populateLocationSelect();
-});
+  });
   renderLive();
   const todaysData = getTodaysData(allData);
   renderDetailData(todaysData, 'detail-data');
@@ -945,10 +1121,8 @@ function renderHistoryDetailData(dateISO, location) {
 
 
 
-
-
-
 document.addEventListener('DOMContentLoaded', () => {
+  
   const liveTab = document.getElementById('live-tab');
   const historyTab = document.getElementById('history-tab');
   const liveSection = document.getElementById('live-section');
@@ -990,10 +1164,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
 });
 
+function initHistoryChartEmpty() {
+  const canvas = document.getElementById('historyChart');
+  const ctx = canvas?.getContext('2d');
+  if (!ctx) return;
+
+  if (window.historyChart instanceof Chart) {
+    window.historyChart.destroy();
+  }
+
+  window.historyChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: Array(24).fill(""),
+      datasets: [{
+        label: 'Leerer Chart',
+        data: Array(24).fill(null),
+        borderColor: 'rgba(150,150,150,0.4)',
+        borderWidth: 1,
+        pointRadius: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          min: 0,
+          max: 100,
+          title: { display: false, text: 'Wert' }
+        },
+        x: {
+          min: 0,
+          max: 100,
+          title: { display: false, text: 'Stunde' }
+        }
+      },
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', async ()=> {
-  await fetchData();
-  populateLocationSelect();
-  initEmptyHistoryChart();
+  /*await fetchData();
+  populateLocationSelect();*/
+
 
   const locSel   = document.getElementById('location-select');
   const monSel   = document.getElementById('month-select');
@@ -1024,4 +1240,6 @@ document.addEventListener('DOMContentLoaded', async ()=> {
   // erste Ausführung
   locSel.selectedIndex = 0;
   locSel.dispatchEvent(new Event('change'));
+
+  initHistoryChartEmpty();
 });
