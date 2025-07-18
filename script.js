@@ -529,7 +529,7 @@ function drawHistoryFor(location, dateISO, metricName) {
   if (!isWind) {
     if (metricName === 'Temperatur') {
       if (dynMin < 10)      { finalMin = -5; finalMax = 25; }
-      else if (dynMax > 35) { finalMin = 15; finalMax = 40; }
+      else if (dynMax > 35) { finalMin = 5; finalMax = 40; }
     }
     if (metricName === 'Beleuchtungsstärke') {
       finalMin = 0;
@@ -831,7 +831,8 @@ function renderMetricChart(metricName, offsetDays = 0) {
   if (!isWindDir) {
     if (metricName === 'Temperatur') {
       if (dynMin < 10)      { finalMin = -5; finalMax = 25; }
-      else if (dynMax > 35) { finalMin = 15; finalMax = 40; }
+      else if (dynMax > 35) { finalMin = 5; finalMax = 40; }
+
     }
     if (metricName === 'Beleuchtungsstärke') {
       finalMin = 0;
