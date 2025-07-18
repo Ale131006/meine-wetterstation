@@ -577,6 +577,9 @@ function drawHistoryFor(location, dateISO, metricName) {
                 const idx = Math.round(v / 45) % windDirLabels.length;
                 return windDirLabels[idx];
               }
+              if (["Beleuchtungsstärke", "UV-Index"].includes(metricName)) {
+                  return Number(v.toFixed(0));
+                }
               return v;
             }
           },
@@ -623,7 +626,10 @@ async function fetchData(){
         windDirection = "Süden";
       }else if(windDirection === "Sdwest"){
         windDirection = "Südwest";
+      }else if(windDirection === "Sdost"){
+        windDirection = "Südosten";
       }
+
       if(rain === "No"){
         rain = "Nein";
       }
@@ -872,6 +878,9 @@ function renderMetricChart(metricName, offsetDays = 0) {
                 const idx = Math.round(val / 45) % 8;
                 return windDirLabels[idx];
               }
+              if (["Beleuchtungsstärke", "UV-Index"].includes(metricName)) {
+                  return Number(val.toFixed(0));
+                }
               return val;
             }
           },
