@@ -1034,7 +1034,7 @@ function renderDetailData(data) {
       <tr>
         <th>Zeit</th><th>Temperatur (°C)</th><th>Luftfeuchtigkeit (%)</th>
         <th>Luftdruck (hPa)</th><th>Beleuchtungsstärke (lx)</th><th>UV-Index</th>
-        <th>Windgeschwindigkeit (km/h)</th><th>Windrichtung</th><th>Regen</th>
+        <th>Windgeschwindigkeit (km/h)<th>Windböe (km/h)</th></th><th>Windrichtung</th><th>Regen</th>
       </tr>`;
     table.appendChild(thead);
 
@@ -1044,12 +1044,13 @@ function renderDetailData(data) {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${e.time}</td>
-        <td>${e.temperature.toFixed(1)}</td>
+        <td>${e.temperature.toFixed(2)}</td>
         <td>${e.humidity.toFixed(1)}</td>
         <td>${e.pressure.toFixed(1)}</td>
         <td>${e.light.toFixed(0)}</td>
         <td>${e.UVIndex.toFixed(1)}</td>
-        <td>${e.windspeed.toFixed(1)}</td>
+        <td>${e.windspeed.toFixed(2)}</td>
+        <td>${e.maxSpeed.toFixed(2)}</td>
         <td>${e.windDirection}</td>
         <td>${e.rain}</td>`;
       tbody.appendChild(tr);
@@ -1144,7 +1145,7 @@ function renderHistoryDetailData(dateISO, location) {
       <tr>
         <th>Zeit</th><th>Temperatur (°C)</th><th>Luftfeuchtigkeit (%)</th>
         <th>Luftdruck (hPa)</th><th>Beleuchtungsstärke (lx)</th><th>UV-Index</th>
-        <th>Windgeschwindigkeit (km/h)</th><th>Windrichtung</th><th>Regen</th>
+        <th>Windgeschwindigkeit (km/h)<th>Windböe (km/h)</th></th><th>Windrichtung</th><th>Regen</th>
       </tr>`;
     table.appendChild(thead);
 
@@ -1154,12 +1155,13 @@ function renderHistoryDetailData(dateISO, location) {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${e.time}</td>
-        <td>${e.temperature.toFixed(1)}</td>
+        <td>${e.temperature.toFixed(2)}</td>
         <td>${e.humidity.toFixed(1)}</td>
         <td>${e.pressure.toFixed(1)}</td>
         <td>${e.light.toFixed(0)}</td>
         <td>${e.UVIndex.toFixed(1)}</td>
-        <td>${e.windspeed.toFixed(1)}</td>
+        <td>${e.windspeed.toFixed(2)}</td>
+        <td>${e.maxSpeed.toFixed(2)}</td>
         <td>${e.windDirection}</td>
         <td>${e.rain}</td>`;
       tbody.appendChild(tr);
