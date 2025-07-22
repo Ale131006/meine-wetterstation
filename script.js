@@ -12,6 +12,7 @@ const pressureElement = document.getElementById('pressure-value');
 const lightElement = document.getElementById('light-value');
 const uvIndexElement = document.getElementById('UVIndex-value');
 const windspeedElement = document.getElementById('windspeed-value');
+const windmaxElement = document.getElementById('windmaxspeed-value');
 const windDirectionElement = document.getElementById('winddirection-value');
 const rainElement = document.getElementById('rain-value');
 const timestamp = document.getElementById('last-update');
@@ -255,7 +256,7 @@ function getHourlyMetric(allData, field, targetDateStr, config) {
       v = (v === 'Ja' || v === 'Yes') ? 1 : 0;
     } else if ([
       'temperature', 'humidity', 'light', 'UVIndex',
-      'windspeed', 'pressure'
+      'windspeed', 'maxSpeed', 'pressure'
     ].includes(field)) {
       v = parseFloat(v);
     }
@@ -504,14 +505,22 @@ function drawHistoryFor(location, dateISO, metricName) {
     return;
   }
 
+
   // 2) Daten je Stunde ermitteln
   const labels  = get24HourLabels(); // ["00:00", …]
   const isWind  = metricName === 'Windrichtung';
 
   // numerisch oder Wind
-  const dataVals = isWind
+  let dataVals = isWind
     ? getHourlyWindDir(filtered, dateISO)
     : getHourlyMetric(filtered, cfg.field, dateISO, cfg);
+
+
+  let maxWindSpeedValues = [];
+  if (metricName === 'Windgeschwindigkeit') {
+    maxWindSpeedValues = getHourlyMetric(filtered, 'maxSpeed', dateISO, cfg);
+    console.log(maxWindSpeedValues);
+  }
 
   // 3) dynMin/dynMax nur bei numerisch
   let dynMin=0, dynMax=0;
@@ -543,6 +552,37 @@ function drawHistoryFor(location, dateISO, metricName) {
     }
   }
 
+    if(metricName === "UV-Index") {
+    dataVals = dataVals.map(v => {
+      if (v === null) return null; // keine Daten
+      return Math.round(v);
+    });
+  }
+
+
+  const datasets = [{
+    label: isWind
+      ? `Windrichtung am ${dateISO}`
+      : `${cfg.label} am ${dateISO}`,
+    data: dataVals,
+    spanGaps: true,
+    tension: isWind ? 0 : 0.3,
+    borderColor: chartColors[metricName],
+    backgroundColor: 'rgba(59,130,246,0.2)',
+    pointRadius: 4
+  }];
+
+  if (metricName === 'Windgeschwindigkeit') {
+    datasets.push({
+      label: 'Maximale Windgeschwindigkeit',
+      data: maxWindSpeedValues,
+      borderColor: 'rgba(0, 184, 169, 0.4)',
+      backgroundColor: 'rgba(0, 184, 169, 0.5)',
+      tension: 0.2
+    });
+  }
+
+
   // 6) Chart zeichnen/aktualisieren
   const ctx = document.getElementById('historyChart').getContext('2d');
   if (historyChart) historyChart.destroy();
@@ -550,17 +590,7 @@ function drawHistoryFor(location, dateISO, metricName) {
     type: 'line',
     data: {
       labels,
-      datasets: [{
-        label: isWind
-          ? `Windrichtung am ${dateISO}`
-          : `${cfg.label} am ${dateISO}`,
-        data: dataVals,
-        spanGaps: true,
-        tension: isWind ? 0 : 0.3,
-        borderColor: chartColors[metricName],
-        backgroundColor: 'rgba(59,130,246,0.2)',
-        pointRadius: 4
-      }]
+      datasets
     },
     options: {
       scales: {
@@ -620,7 +650,7 @@ async function fetchData(){
     lines.shift(); // Entfernt die Kopfzeile
 
     allData = lines.map(line => {
-      let [timestamp, temperature, humidity, pressure, light, UVIndex, windspeed, windDirection, location, altitude, rain] = line.split(',');
+      let [timestamp, temperature, humidity, pressure, light, UVIndex, windspeed, windDirection, location, altitude, rain, maxSpeed] = line.split(',');
 
       if(windDirection === "Sden"){
         windDirection = "Süden";
@@ -648,7 +678,8 @@ async function fetchData(){
         windDirection,
         location,
         altitude: parseFloat(altitude),
-        rain
+        rain, 
+        maxSpeed: parseFloat(maxSpeed)
       };
     });
     console.log('Fetched data:', allData
@@ -659,8 +690,6 @@ async function fetchData(){
 
     updateLiveStatus();
 }
-
-
 
 
 function renderLive(){
@@ -684,8 +713,9 @@ function renderLive(){
   humidityElement.textContent = latest.humidity.toFixed(2);
   pressureElement.textContent = latest.pressure.toFixed(2);
   lightElement.textContent = latest.light.toFixed(2);
-  uvIndexElement.textContent = latest.UVIndex.toFixed(1);
+  uvIndexElement.textContent = latest.UVIndex.toFixed(0);
   windspeedElement.textContent = latest.windspeed.toFixed(2);
+  windmaxElement.textContent = latest.maxSpeed.toFixed(2);
   windDirectionElement.textContent = latest.windDirection;
   rainElement.textContent = latest.rain;
   locationElement.textContent = "Ort: " + latest.location;
@@ -813,6 +843,14 @@ function renderMetricChart(metricName, offsetDays = 0) {
     ? getHourlyWindDir(allData, targetDateStr)
     : getHourlyMetric(allData, cfg.field, targetDateStr, cfg);
 
+
+  let maxWindSpeedValues = [];
+  if (metricName === 'Windgeschwindigkeit') {
+    maxWindSpeedValues = getHourlyMetric(allData, 'maxSpeed', targetDateStr, cfg);
+    console.log(maxWindSpeedValues);
+  }
+
+
   const labels = get24HourLabels();
 
   // 2) dynMin/dynMax nur bei numerischen Metriken
@@ -846,14 +884,14 @@ function renderMetricChart(metricName, offsetDays = 0) {
     }
   }
 
-  // 5) Chart zeichnen
-  const ctx = document.getElementById('dailyChart').getContext('2d');
-  if (dailyChart) dailyChart.destroy();
-  dailyChart = new Chart(ctx, {
-    type: 'line',    // immer Line-Chart
-    data: {
-      labels,
-      datasets: [{
+  if(metricName === "UV-Index") {
+    dataVals = dataVals.map(v => {
+      if (v === null) return null; // keine Daten
+      return Math.round(v);
+    });
+  }
+
+  const datasets = [{
         label: yLabel,
         data: dataVals,
         spanGaps: true,
@@ -861,7 +899,26 @@ function renderMetricChart(metricName, offsetDays = 0) {
         borderColor: chartColors[metricName],
         backgroundColor: 'rgba(59,130,246,0.2)',
         pointRadius: 4
-      }]
+  }];
+
+  if (metricName === 'Windgeschwindigkeit') {
+    datasets.push({
+      label: 'Maximale Windgeschwindigkeit',
+      data: maxWindSpeedValues,
+      borderColor: 'rgba(0, 184, 169, 0.4)',
+      backgroundColor: 'rgba(0, 184, 169, 0.5)',
+      tension: 0.2
+    });
+  }
+
+  // 5) Chart zeichnen
+  const ctx = document.getElementById('dailyChart').getContext('2d');
+  if (dailyChart) dailyChart.destroy();
+  dailyChart = new Chart(ctx, {
+    type: 'line',    // immer Line-Chart
+    data: {
+      labels,
+      datasets
     },
     options: {
       scales: {
