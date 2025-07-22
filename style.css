@@ -183,6 +183,15 @@ section#history-section {
   right: 2rem;
   font-size: 0.9rem; 
   font-weight: 500;  
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+   gap: 2px;
+}
+
+.windmax-text {
+  font-size: 0.85em;
+  color: #666;
 }
 
 .temp-value, .humidity-value, .pressure-value, .light-value, .UVIndex-value, .windspeed-value, .rain-value, .winddirection-value {
