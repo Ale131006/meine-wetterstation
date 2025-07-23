@@ -771,7 +771,7 @@ const metricConfig = {
     field: 'windspeed',
     label: 'Windgeschwindigkeit (km/h)',
     min: 0, max: 50, stepSize: 10,
-    aggregate: arr => Math.max(...arr)  // maximale Böe
+    aggregate: arr => Math.max(...arr)  // maximale Böe aggregate: arr => arr.reduce((a,b)=>a+b,0) / arr.length   //
   },
   Regen: {
     field: 'rain',
@@ -849,6 +849,20 @@ function renderMetricChart(metricName, offsetDays = 0) {
     maxWindSpeedValues = getHourlyMetric(allData, 'maxSpeed', targetDateStr, cfg);
     console.log(maxWindSpeedValues);
   }
+
+  /*if (metricName === 'Windgeschwindigkeit') {
+      // Durchschnitt der 'windspeed'‑Werte in der Stunde
+      dataVals = getHourlyMetric(allData, 'windspeed', targetDateStr, {
+          aggregate: arr => arr.reduce((a,b)=>a+b,0) / arr.length
+      });
+      // Höchste Böe in der Stunde aus 'maxSpeed'
+      maxWindSpeedValues = getHourlyMetric(allData, 'maxSpeed', targetDateStr, {
+          aggregate: arr => Math.max(...arr)
+      });
+  }
+  else {
+      dataVals = getHourlyMetric(allData, cfg.field, targetDateStr, cfg);
+  }*/
 
 
   const labels = get24HourLabels();
