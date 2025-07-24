@@ -202,7 +202,7 @@ function updateLiveStatus() {
 
   const statusElement = document.getElementById('live-indicator');
 
-  if (diffMin < 10) {
+  if (diffMin < 30) {
     statusElement.textContent = 'Live';
     statusElement.style.backgroundColor = "#d1fae5";
     statusElement.style.color = "#065f46";
