@@ -151,57 +151,42 @@ function get24HourLabels() {
 }
 
 function convertUTCTextToCET(timestampStr) {
-  const [datePart, timePart] = timestampStr.trim().split(' ');
-
-  let day, month, year;
-  if (datePart.includes('.')) {
-    [day, month, year] = datePart.split('.');
-  } else {
-    [year, month, day] = datePart.split('-');
-  }
-
-  const [hour, minute, second] = timePart.split(':');
-
-  const utcDate = new Date(Date.UTC(
-    year, month - 1, day,
-    hour, minute, second
-  ));
-
-  const formatter = new Intl.DateTimeFormat('de-CH', {
-    timeZone: 'Europe/Zurich',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  });
-
-  const parts = formatter.formatToParts(utcDate);
-  const get = (type) => parts.find(p => p.type === type).value;
-
-  return `${get('day')}.${get('month')}.${get('year')} ${get('hour')}:${get('minute')}:${get('second')}`;
+  // Entfernt nur noch Anführungszeichen, gibt ansonsten exakt den
+  // DD.MM.YYYY HH:mm:ss-String zurück, wie er aus dem Sheet kommt
+  return timestampStr.replace(/^"|"$/g, '').trim();
 }
 
 function updateLiveStatus() {
   if (!allData || allData.length === 0) return;
 
-  const latest = allData[allData.length - 1];
+  // Roh-Timestamp aus dem Array
+  const rawTs = allData[allData.length - 1].timestamp;
 
-  // Letzter Zeitstempel als Date-Objekt (Achtung: Lokalzeit!)
-  const [dateStr, timeStr] = latest.timestamp.split(' ');
+  // Stelle sicher, dass er im DD.MM.YYYY HH:mm:ss-Format vorliegt
+  const formattedTs = convertUTCTextToCET(rawTs);
+
+  // Anzeige aktualisieren
+  document.getElementById('last-update').textContent = formattedTs;
+
+  // Zerlege Datum + Zeit
+  const [dateStr, timeStr] = formattedTs.split(' ');
   const [day, month, year] = dateStr.split('.');
   const [hour, minute, second] = timeStr.split(':');
-  const latestDate = new Date(year, month - 1, day, hour, minute, second);
 
-  const now = new Date();
+  // Erzeuge lokales Date-Objekt (keine UTC-Umrechnung)
+  const latestDate = new Date(
+    parseInt(year, 10),
+    parseInt(month, 10) - 1,
+    parseInt(day, 10),
+    parseInt(hour, 10),
+    parseInt(minute, 10),
+    parseInt(second, 10)
+  );
 
-  const diffMs = now - latestDate;
-  const diffMin = diffMs / 60000; // ms → Minuten
+  const now = new Date();        // jetzt - auch lokal
+  const diffMin = (now - latestDate) / 60000;  // in Minuten
 
   const statusElement = document.getElementById('live-indicator');
-
   if (diffMin < 30) {
     statusElement.textContent = 'Live';
     statusElement.style.backgroundColor = "#d1fae5";
@@ -1018,6 +1003,7 @@ function renderDetailData(data) {
 
   const spanElement = document.getElementById("detail-summary-text");
   let ort = data[0].location;
+  console.log("Ort: ", ort);
   let date = data[0].timestamp.split(" ")[0];
 
   let spanText = `Rohdaten vom ${date} - ${ort}`;
