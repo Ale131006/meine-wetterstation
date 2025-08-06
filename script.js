@@ -522,8 +522,15 @@ function drawHistoryFor(location, dateISO, metricName) {
   // 5) Speziallogik numerisch
   if (!isWind) {
     if (metricName === 'Temperatur') {
-      if (dynMin < 10)      { finalMin = -5; finalMax = 25; }
-      else if (dynMax > 35) { finalMin = 5; finalMax = 40; }
+      if(dynMin < 4.5){
+        finalMin = -5;
+      }
+      if(dynMin < 8.99){
+        finalMin = 0;
+      }
+      if(dynMax > 35){
+        finalMax = 40;
+      }
     }
     if (metricName === 'Beleuchtungsstärke') {
       finalMin = 0;
@@ -861,6 +868,7 @@ function renderMetricChart(metricName, offsetDays = 0) {
   let dynMin=0, dynMax=0;
   if (!isWindDir) {
     ({ min: dynMin, max: dynMax } = computeScaleRange(dataVals));
+    console.log(dynMin, dynMax);
   }
 
   // 3) finalMin/Max initial
@@ -872,9 +880,24 @@ function renderMetricChart(metricName, offsetDays = 0) {
   // 4) Spezialfälle für non‑wind
   if (!isWindDir) {
     if (metricName === 'Temperatur') {
-      if (dynMin < 10)      { finalMin = -5; finalMax = 25; }
-      else if (dynMax > 35) { finalMin = 5; finalMax = 40; }
 
+      if(dynMin < 4.5){
+        finalMin = -5;
+      }
+      if(dynMin < 8.99){
+        finalMin = 0;
+      }
+      if(dynMax > 35){
+        finalMax = 40;
+      }
+      
+
+      /*if (dynMin < 8.99 && dynMax < 25)      { finalMin = -5; finalMax = 25; }
+      else if( dynMax < 4.5 && dynMax > 25) { finalMin = -5; finalMax = 35; }
+      else if (dynMax > 35) { finalMin = 10; finalMax = 40; }
+      else{
+        
+      }*/
     }
     if (metricName === 'Beleuchtungsstärke') {
       finalMin = 0;
@@ -1317,3 +1340,7 @@ document.addEventListener('DOMContentLoaded', async ()=> {
 
   initHistoryChartEmpty();
 });
+
+
+// TODO: bei livedtabelle ist der Ort noch nicht eingetragen. 
+// TODO: Bei windgeschwindigkeit muss die maxgeschwindigkeit erhöht werden bei hohen windgeschwindigkeiten
