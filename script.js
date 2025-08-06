@@ -1026,7 +1026,6 @@ function renderDetailData(data) {
 
   const spanElement = document.getElementById("detail-summary-text");
   let ort = data[0].location;
-  console.log("Ort: ", ort);
   let date = data[0].timestamp.split(" ")[0];
 
   let spanText = `Rohdaten vom ${date} - ${ort}`;
