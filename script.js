@@ -525,7 +525,7 @@ function drawHistoryFor(location, dateISO, metricName) {
       if(dynMin < 4.5){
         finalMin = -5;
       }
-      if(dynMin < 8.99){
+      if(dynMin <= 9){
         finalMin = 0;
       }
       if(dynMax > 35){
@@ -884,7 +884,7 @@ function renderMetricChart(metricName, offsetDays = 0) {
       if(dynMin < 4.5){
         finalMin = -5;
       }
-      if(dynMin < 8.99){
+      if(dynMin <= 9){
         finalMin = 0;
       }
       if(dynMax > 35){
