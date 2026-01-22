@@ -511,6 +511,7 @@ function drawHistoryFor(location, dateISO, metricName) {
   let dynMin=0, dynMax=0;
   if (!isWind) {
     ({ min: dynMin, max: dynMax } = computeScaleRange(dataVals));
+    console.log(dynMin)
   }
 
   // 4) Default-Bereiche
@@ -519,15 +520,23 @@ function drawHistoryFor(location, dateISO, metricName) {
   let stepSize  = isWind ? 45  : cfg.stepSize;
   const yLabel  = isWind ? 'Windrichtung' : cfg.label;
 
+  
+
   // 5) Speziallogik numerisch
   if (!isWind) {
     if (metricName === 'Temperatur') {
-      if(dynMin < 4.5){
+
+      if (dynMin < -6.5){ 
+        finalMin = -10;
+      }
+      else if(dynMin <= -3){ 
         finalMin = -5;
       }
-      if(dynMin <= 9){
+      else if(dynMin <= 9){
         finalMin = 0;
       }
+
+
       if(dynMax > 35){
         finalMax = 40;
       }
@@ -868,7 +877,6 @@ function renderMetricChart(metricName, offsetDays = 0) {
   let dynMin=0, dynMax=0;
   if (!isWindDir) {
     ({ min: dynMin, max: dynMax } = computeScaleRange(dataVals));
-    console.log(dynMin, dynMax);
   }
 
   // 3) finalMin/Max initial
@@ -881,12 +889,18 @@ function renderMetricChart(metricName, offsetDays = 0) {
   if (!isWindDir) {
     if (metricName === 'Temperatur') {
 
-      if(dynMin < 4.5){
+      
+
+      if (dynMin < -6.5){ 
+        finalMin = -10;
+      }
+      else if(dynMin <= -3){ 
         finalMin = -5;
       }
-      if(dynMin <= 9){
+      else if(dynMin <= 9){
         finalMin = 0;
       }
+
       if(dynMax > 35){
         finalMax = 40;
       }
