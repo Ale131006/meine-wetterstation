@@ -2,6 +2,7 @@ name: Update JSON files
 
 on:
   workflow_dispatch:
+  push:
   schedule:
     - cron: "10 * * * *" # jede Stunde bei Minute 10
 

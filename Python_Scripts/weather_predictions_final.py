@@ -106,7 +106,7 @@ def get_all_predictions(timedelta=[1,4,8,24]):
 history_data = [
     {"time": "2026-04-03T12:17:00Z", "temperature": 20.8},
     {"time": "2026-04-03T13:17:00Z", "temperature": 21.1},
-    {"time": "2026-04-03T14:17:00Z", "temperature": 21.5}
+    {"time": "2026-04-03T14:17:00Z", "temperature": 20.5}
 ]
 
 with open("Data/json_data.json", "w", encoding="utf-8") as f: 
