@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 import os
 import datetime
+import json
 
 #Load the dataset into Python
 
@@ -101,6 +102,15 @@ def get_all_predictions(timedelta=[1,4,8,24]):
     pred_light = get_prediction("light", timedelta)
     pred_uv = get_prediction("Uv", timedelta)
 
+
+history_data = [
+    {"time": "2026-04-03T12:17:00Z", "temperature": 20.8},
+    {"time": "2026-04-03T13:17:00Z", "temperature": 21.1},
+    {"time": "2026-04-03T14:17:00Z", "temperature": 21.4}
+]
+
+with open("Data/json_data.json", "w", encoding="utf-8") as f: 
+    json.dump(history_data, f, ensure_ascii=False, indent=2)
 
 
     
