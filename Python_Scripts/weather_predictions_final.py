@@ -83,6 +83,7 @@ def get_prediction(feature, timedelta=[1,4,8,24]):
     for delta in timedelta:
         X_train, X_test, y_train, y_test = prepare_training_data(feature, delta)
         model = train_model(X_train, y_train)
+        print(f"Model trained for {feature} with timedelta {delta} hours.")
 
         current = df.iloc[[-1]]
         current = current.drop(columns=dropcolumns)
@@ -131,7 +132,7 @@ def create_x_axis(times):
     return future_times
 
 
-json_data = create_output_json([1,4])
+json_data = create_output_json([1,2, 3, 4, 5, 6 , 7, 8])
 
 
 with open("Data/json_data.json", "w", encoding="utf-8") as f: 
@@ -151,11 +152,13 @@ with open("Data/json_data.json", "w", encoding="utf-8") as f:
 
 
 
+
 def testing(feature, timedelta=[1,4,8,24]):
     prediction = get_prediction(feature, timedelta)
     X_test = prediction[1]
     y_test = prediction[2]
-    y_pred = prediction[0]
+    y_pred = [(k, sum(v)) for k, v in prediction[0].items()]
+    print(f"Predictions: {y_pred}")
 
     mae = mean_absolute_error(y_true=y_test, y_pred=y_pred)
     print(f"Mean average Error: {mae}")
@@ -163,7 +166,7 @@ def testing(feature, timedelta=[1,4,8,24]):
     fix, ax = plt.subplots(figsize=(10,5))
 
     sns.scatterplot(x=y_test, y= y_test, ax=ax)
-    sns.scatterplot(x=y_test, y=y_pred, ax=ax)
+    #sns.scatterplot(x=y_test, y=y_pred, ax=ax)
     plt.show()
 
-#testing("Temp")  Gibt fehler
+#testing("Temp") Viele Fehler + model müsste weitergegeben werden, um X_test mit y_test und y_pred zu vergleichen.
