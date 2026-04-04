@@ -137,7 +137,7 @@ def testing(feature, timedelta=[1,4,8,24]):
 
     fix, ax = plt.subplots(figsize=(10,5))
 
-    sns.scatterplot(x=y_test, y= y_test, ax = ax)
+    sns.scatterplot(x=y_test, y= y_test, ax=ax)
     sns.scatterplot(x=y_test, y=y_pred, ax=ax)
     plt.show()
 
