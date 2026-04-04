@@ -9,8 +9,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 import os
-import datetime
+from datetime import datetime, timedelta
 import json
+import pytz
 
 #Load the dataset into Python
 
@@ -92,25 +93,49 @@ def get_prediction(feature, timedelta=[1,4,8,24]):
 
     return predictions, X_test, y_test
 
-temp_pred = get_prediction("Temp", [1,4])[0]
-print(temp_pred)
+#temp_pred = get_prediction("Temp", [1,4])[0]
+#print(temp_pred)
 
 def get_all_predictions(timedelta=[1,4,8,24]):
     pred_temp = get_prediction("Temp", timedelta)[0]
-    pred_hum = get_prediction("Hum", timedelta)
-    pred_pres = get_prediction("pres", timedelta)
-    pred_light = get_prediction("light", timedelta)
-    pred_uv = get_prediction("Uv", timedelta)
+    pred_hum = get_prediction("Hum", timedelta)[0]
+    pred_pres = get_prediction("pres", timedelta)[0]
+    pred_light = get_prediction("light", timedelta)[0]
+    pred_uv = get_prediction("Uv", timedelta)[0]
+    return [pred_temp, pred_hum, pred_pres, pred_light, pred_uv]
+
+def create_output_json(timedelta=[1,4,8,24]):
+    predictions = get_all_predictions(timedelta)
+    weather_data = []                   #y
+
+    for prediction in predictions:
+        weather_data.append([prediction])
+
+    x = create_x_axis(timedelta)
+
+    output_json = []
+    
+    for data in weather_data:
+        output_json.append({"X": x, "y": data})
+
+    return output_json
+
+def create_x_axis(times):
+    timezone = pytz.timezone("Europe/Berlin")
+    now = datetime.now(timezone)
+    next_hour = now + timedelta(hours=0)  #veränderbar/anpasse /TODO
+    next_hour = next_hour.replace(minute=0, second=0, microsecond=0)
+
+    future_times = [(next_hour + timedelta(hours=i)).strftime("%H:00") for i in times]
+
+    return future_times
 
 
-history_data = [
-    {"time": "2026-04-03T12:17:00Z", "temperature": 20.8},
-    {"time": "2026-04-03T13:17:00Z", "temperature": 21.1},
-    {"time": "2026-04-03T14:17:00Z", "temperature": 23.5}
-]
+json_data = create_output_json([1,4])
+
 
 with open("Data/json_data.json", "w", encoding="utf-8") as f: 
-    json.dump(history_data, f, ensure_ascii=False, indent=2)
+    json.dump(json_data, f, ensure_ascii=False, indent=2)
 
 
     
