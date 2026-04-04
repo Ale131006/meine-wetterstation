@@ -1355,5 +1355,30 @@ document.addEventListener('DOMContentLoaded', async ()=> {
 });
 
 
+fetch("./Data/json_data.json")
+      .then(r => r.json())
+      .then(data => {
+        console.log(data)
+});
+
+console.log("Test")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // TODO: bei livedtabelle ist der Ort noch nicht eingetragen. 
 // TODO: Bei windgeschwindigkeit muss die maxgeschwindigkeit erhöht werden bei hohen windgeschwindigkeiten
