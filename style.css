@@ -987,6 +987,46 @@ footer {
 
 }
 
+@media (max-width: 600px) {
+  #forecast-section .forecast-card {
+  background: #fff;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  min-height: 250px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  cursor: pointer;
+  height: 275px;
+  }
+
+  #forecast-section .forecast-chart-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  padding: 0;
+  margin: 0 auto;
+  height: 200px;
+  min-height: 200px;
+  }
+}
+
+
+
+
+
+
+
+@media (max-width: 480px) {
+  #forecast-section .forecast-card {
+  background: #fff;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  min-height: 240px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  cursor: pointer;
+  height: 240px;
+}
+}
+
 
 
 

@@ -1710,4 +1710,4 @@ document.addEventListener("DOMContentLoaded", initForecastSection);
 //TODO: Python modell verbessern (Trend mitgeben)
 //TODO: Python modell effizienter machen
 //TODO: workflow richtig setzen
-//TODO: Wettervorhersage handy kompatibel machen
+//TODO: Skalen dynMAx, dynMin anapassen
