@@ -1235,21 +1235,36 @@ document.addEventListener('DOMContentLoaded', () => {
   
   const liveTab = document.getElementById('live-tab');
   const historyTab = document.getElementById('history-tab');
+  const forecastTab = document.getElementById('forecast-tab');
   const liveSection = document.getElementById('live-section');
   const historySection = document.getElementById('history-section');
+  const forecastSection = document.getElementById('forecast-section');
 
   liveTab.addEventListener('click', () => {
     liveTab.classList.add('active');
     historyTab.classList.remove('active');
+    forecastTab.classList.remove('active');
     liveSection.classList.remove('hidden');
     historySection.classList.add('hidden');
+    forecastSection.classList.add('hidden');
   });
 
   historyTab.addEventListener('click', () => {
     historyTab.classList.add('active');
     liveTab.classList.remove('active');
+    forecastTab.classList.remove('active');
     historySection.classList.remove('hidden');
     liveSection.classList.add('hidden');
+    forecastSection.classList.add('hidden');
+  });
+
+  forecastTab.addEventListener('click', () => {
+    forecastTab.classList.add('active');
+    liveTab.classList.remove('active');
+    historyTab.classList.remove('active');
+    forecastSection.classList.remove('hidden');
+    liveSection.classList.add('hidden');
+    historySection.classList.add('hidden');
   });
 
   if (window.GPS_DATA) {
@@ -1355,13 +1370,321 @@ document.addEventListener('DOMContentLoaded', async ()=> {
 });
 
 
-fetch("./Data/json_data.json")
-      .then(r => r.json())
-      .then(data => {
-        console.log(data)
-});
+async function load_forecast(){
+  await fetch("./Data/json_data.json").then(r=>r.json()).then(data =>{
+    forecast_data = data
+  })
+  return forecast_data
+}
 
-console.log("Test")
+let forecastModalChart = null;
+const forecastPreviewCharts = {};
+
+let forecastLabels;
+
+const forecastChartColors = {
+  Temperatur: 'rgba(234, 88, 12, 1)',
+  Luftfeuchtigkeit: 'rgba(37, 99, 235, 1)',
+  Luftdruck: 'rgba(124, 58, 237, 1)',
+  Beleuchtungsstärke: 'rgba(202, 138, 4, 1)',
+  'UV-Index': 'rgba(220, 38, 38, 1)',
+  Windgeschwindigkeit: 'rgba(22, 163, 74, 1)',
+  Windrichtung: 'rgba(159, 122, 234, 1)',
+  Regen: 'rgba(3, 105, 161, 1)'
+};
+
+let forecastDataMap;
+
+async function get_forecast_data(){
+  forecast_data = await load_forecast()
+
+  let forecastLabels = []
+
+  forecastLabels = [...forecast_data[0].X]
+
+  tempValues = Object.values(forecast_data[0].y[0]).map(v => parseFloat(v.replace("[", "").replace("]", "")))
+  humValues = Object.values(forecast_data[1].y[0]).map(v => parseFloat(v.replace("[", "").replace("]", "")))
+  presValues = Object.values(forecast_data[2].y[0]).map(v => parseFloat(v.replace("[", "").replace("]", ""))/100)
+  lightValues = Object.values(forecast_data[3].y[0]).map(v => parseFloat(v.replace("[", "").replace("]", "")))
+  uvValues = Object.values(forecast_data[4].y[0]).map(v => Math.round(parseFloat(v.replace("[", "").replace("]", ""))))
+  
+  presValues.forEach(value =>{
+      value = value/1000
+  })
+
+  forecastDataMap = {
+  "Temperatur": {
+    labels: forecastLabels,
+    data: tempValues,
+    unit: "°C",
+    min: 0,
+    max: 28,
+    stepSize: 7,
+    type: "line"
+  },
+  "Luftfeuchtigkeit": {
+    labels: forecastLabels,
+    data: humValues,
+    unit: "%",
+    min: 0,
+    max: 100,
+    stepSize: 25,
+    type: "line"
+  },
+  "Luftdruck": {
+    labels: forecastLabels,
+    data: presValues,
+    unit: "hPa",
+    min: 1000,
+    max: 1030,
+    stepSize: 7,
+    type: "line"
+  },
+  "Beleuchtungsstärke": {
+    labels: forecastLabels,
+    data: lightValues,
+    unit: "Lux",
+    min: 0,
+    max: 80000,
+    stepSize: 20000,
+    type: "line"
+  }, 
+  "UV-Index": {
+    labels: forecastLabels,
+    data: uvValues,
+    unit: "",
+    min: 0,
+    max: 8,
+    stepSize: 2,
+    type: "line"
+  }
+  };
+}
+
+
+
+function hexToRgba(hex, alpha) {
+  const cleaned = hex.replace("#", "");
+  const bigint = parseInt(cleaned, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function createForecastGradient(ctx, color, chartArea) {
+  const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+  gradient.addColorStop(0, hexToRgba(color, 0.22));
+  gradient.addColorStop(1, hexToRgba(color, 0.03));
+  return gradient;
+}
+
+function getForecastChartOptions(metricName, isModal = false) {
+  const cfg = forecastDataMap[metricName];
+
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: "index",
+      intersect: false
+    },
+    plugins: {
+      legend: {
+        display: false
+      },
+      tooltip: {
+        mode: "index",
+        intersect: false,
+        callbacks: {
+          label: function(context) {
+            return `${metricName}: ${context.parsed.y}${cfg.unit}`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        title: {
+          display: false
+        },
+        grid: {
+          color: "rgba(0,0,0,0.08)",
+          lineWidth: 1
+        },
+        ticks: {
+          color: "#6b7280",
+          font: {
+            size: isModal ? 16 : 13
+          }
+        }
+      },
+      y: {
+        min: cfg.min,
+        max: cfg.max,
+        ticks: {
+          stepSize: cfg.stepSize,
+          color: "#6b7280",
+          font: {
+            size: isModal ? 16 : 13
+          },
+          callback: function(value) {
+            return `${value}${cfg.unit}`;
+          }
+        },
+        title: {
+          display: true,
+          text: `${metricName}${cfg.unit ? ` (${cfg.unit})` : ""}`,
+          color: "#6b7280",
+          font: {
+            size: isModal ? 16 : 13
+          }
+        },
+        grid: {
+          color: "rgba(0,0,0,0.08)",
+          lineWidth: 1
+        }
+      }
+    },
+    elements: {
+      line: {
+        tension: 0.3,
+        borderWidth: isModal ? 3 : 3
+      },
+      point: {
+        radius: isModal ? 5 : 4,
+        hoverRadius: isModal ? 6 : 5,
+        borderWidth: 2,
+        backgroundColor: "#ffffff"
+      }
+    }
+  };
+}
+
+function buildForecastDataset(metricName) {
+  const cfg = forecastDataMap[metricName];
+  const color = forecastChartColors[metricName];
+  const isBar = cfg.type === "bar";
+
+  return {
+    label: metricName,
+    data: cfg.data,
+    borderColor: color,
+    backgroundColor: isBar ? "rgba(234, 179, 8, 0.7)" : color,
+    fill: false,
+    spanGaps: true,
+    tension: 0.3,
+    pointRadius: isBar ? 0 : 5,
+    pointHoverRadius: isBar ? 0 : 6,
+    pointBorderWidth: isBar ? 0 : 2,
+    pointBackgroundColor: "#ffffff",
+    pointBorderColor: color,
+    borderWidth: isBar ? 0 : 3,
+    borderSkipped: false,
+    barPercentage: 0.72,
+    categoryPercentage: 0.8
+  };
+}
+
+function createForecastPreviewChart(canvasId, metricName) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  const cfg = forecastDataMap[metricName];
+  const type = cfg.type;
+
+  const chart = new Chart(canvas, {
+    type,
+    data: {
+      labels: cfg.labels,
+      datasets: [buildForecastDataset(metricName)]
+    },
+    options: getForecastChartOptions(metricName, false)
+  });
+
+  forecastPreviewCharts[metricName] = chart;
+}
+
+
+function openForecastModal(metricName) {
+    const modal = document.getElementById("forecastModal");
+    const title = document.getElementById("forecastModalTitle");
+    const canvas = document.getElementById("forecastModalChart");
+
+    if (!modal || !title || !canvas) return;
+
+    const cfg = forecastDataMap[metricName];
+    const type = cfg.type;
+
+    title.textContent = `${metricName} – Vorhersage`;
+
+    if (forecastModalChart) {
+      forecastModalChart.destroy();
+      forecastModalChart = null;
+    }
+
+   forecastModalChart = new Chart(canvas, {
+      type,
+      data: {
+        labels: cfg.labels,
+        datasets: [buildForecastDataset(metricName)]
+      },
+      options: getForecastChartOptions(metricName, true)
+    });
+
+    modal.classList.remove("hidden");
+    document.body.style.overflow = "hidden";
+  }
+
+function closeForecastModal() {
+    const modal = document.getElementById("forecastModal");
+    if (!modal) return;
+
+    modal.classList.add("hidden");
+    document.body.style.overflow = "";
+
+    if (forecastModalChart) {
+      forecastModalChart.destroy();
+      forecastModalChart = null;
+    }
+  }
+
+async function initForecastSection() {
+  await get_forecast_data()
+  createForecastPreviewChart("forecastTempChart", "Temperatur");
+  createForecastPreviewChart("forecastHumidityChart", "Luftfeuchtigkeit");
+  createForecastPreviewChart("forecastPressureChart", "Luftdruck");
+  createForecastPreviewChart("forecastLightChart", "Beleuchtungsstärke");
+  createForecastPreviewChart("forecastUVChart", "UV-Index");
+
+  document.querySelectorAll(".forecast-card").forEach(card => {
+    card.addEventListener("click", () => {
+      const metric = card.dataset.forecastMetric;
+      openForecastModal(metric);
+    });
+  });
+
+  document
+    .getElementById("forecastModalClose")
+    ?.addEventListener("click", closeForecastModal);
+
+  document
+    .querySelector(".forecast-modal-backdrop")
+    ?.addEventListener("click", closeForecastModal);
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      closeForecastModal();
+    }
+  });
+
+
+}
+
+document.addEventListener("DOMContentLoaded", initForecastSection);
+
+
+
 
 
 
@@ -1382,3 +1705,9 @@ console.log("Test")
 
 // TODO: bei livedtabelle ist der Ort noch nicht eingetragen. 
 // TODO: Bei windgeschwindigkeit muss die maxgeschwindigkeit erhöht werden bei hohen windgeschwindigkeiten
+
+
+//TODO: Python modell verbessern (Trend mitgeben)
+//TODO: Python modell effizienter machen
+//TODO: workflow richtig setzen
+//TODO: Wettervorhersage handy kompatibel machen
