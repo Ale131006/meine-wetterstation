@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   #push:#
   schedule:
-    - cron: "10 * * * *" # jede Stunde bei Minute 10
+    - cron: "40 * * * *" # jede Stunde bei Minute 10
 
 permissions:
   contents: write

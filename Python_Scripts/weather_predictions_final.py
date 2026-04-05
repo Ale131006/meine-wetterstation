@@ -74,7 +74,7 @@ def prepare_training_data(feature, timedelta):
     return X_train, X_test, y_train, y_test
 
 def train_model(X_train, y_train):
-    model = RandomForestRegressor(n_estimators=2000, max_features=6, oob_score=True, random_state=4) #max_samples = 60
+    model = RandomForestRegressor(n_estimators=1500, max_features=5, oob_score=True, random_state=4) #max_samples = 60 #n_estimators = 2000, max_features =6
     model.fit(X_train, y_train)
     return model
 
