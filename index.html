@@ -33,6 +33,7 @@
     <nav class="tabs">
       <button id="live-tab" class="tab active">Live-Daten</button>
       <button id="history-tab" class="tab">Historische Daten</button>
+      <button id="forecast-tab" class="tab">Wettervorhersage</button>
     </nav>
 
     <section id="live-section">
@@ -218,6 +219,75 @@
               <!-- Button wird hier per JS eingefügt -->
             </div>
       </details>
+    </section>
+
+    <section id="forecast-section" class="section hidden">
+        <div class="forecast-container">
+    <div class="forecast-grid">
+      <div class="forecast-card" data-forecast-metric="Temperatur">
+        <div class="forecast-card-header">
+          <h3>Temperatur</h3>
+        </div>
+        <div class="forecast-chart-wrap">
+          <canvas id="forecastTempChart"></canvas>
+        </div>
+      </div>
+
+      <div class="forecast-card" data-forecast-metric="Luftfeuchtigkeit">
+        <div class="forecast-card-header">
+          <h3>Luftfeuchtigkeit</h3>
+        </div>
+        <div class="forecast-chart-wrap">
+          <canvas id="forecastHumidityChart"></canvas>
+        </div>
+      </div>
+
+      <div class="forecast-card" data-forecast-metric="Luftdruck">
+        <div class="forecast-card-header">
+          <h3>Luftdruck</h3>
+        </div>
+        <div class="forecast-chart-wrap">
+          <canvas id="forecastPressureChart"></canvas>
+        </div>
+      </div>
+
+      <div class="forecast-card" data-forecast-metric="Beleuchtungsstärke">
+        <div class="forecast-card-header">
+          <h3>Helligkeit</h3>
+        </div>
+        <div class="forecast-chart-wrap">
+          <canvas id="forecastLightChart"></canvas>
+        </div>
+      </div>
+
+      <div class="forecast-card" data-forecast-metric="UV-Index">
+        <div class="forecast-card-header">
+          <h3>UV-Index</h3>
+        </div>
+        <div class="forecast-chart-wrap">
+          <canvas id="forecastUVChart"></canvas>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="forecastModal" class="forecast-modal hidden">
+    <div class="forecast-modal-backdrop"></div>
+
+      <div class="forecast-modal-content">
+        <button id="forecastModalClose" class="forecast-modal-close" aria-label="Schliessen">×</button>
+
+        <div class="forecast-modal-header">
+          <h2 id="forecastModalTitle">Temperatur Vorhersage</h2>
+        </div>
+
+        <div class="forecast-modal-chart-wrap">
+          <canvas id="forecastModalChart"></canvas>
+        </div>
+      </div>
+    </div>
     </section>
 
     <footer id="site-footer">
