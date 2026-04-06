@@ -132,7 +132,7 @@ def create_x_axis(times):
     return future_times
 
 
-json_data = create_output_json([1,2, 3, 4, 5, 6 , 7, 8])
+json_data = create_output_json([1])
 
 
 with open("Data/json_data.json", "w", encoding="utf-8") as f: 
@@ -140,33 +140,50 @@ with open("Data/json_data.json", "w", encoding="utf-8") as f:
 
 
     
-    
+#-----------------LSTM einfügen-----------------
+
+from LSTM_weather_forecast_final import get_pred, visualize_forecast, load_and_clean_data
+# --- HAUPTPROGRAMM ---
+
+if __name__ == "__main__":
+    data = load_and_clean_data(url)
+
+    # Aufruf für Temperatur
+    res_temp = get_pred("Temp", data)
+    print(f"MAE Temperatur: {res_temp['mae']:.2f}°C")
+
+    # Aufruf für Luftfeuchtigkeit
+    res_hum = get_pred("Hum", data)
+    print(f"MAE Luftfeuchtigkeit: {res_hum['mae']:.2f}%")
+
+    # Aufruf für Luftdruck
+    res_pres = get_pred("pres", data)
+    print(f"MAE Luftdruck: {res_pres['mae']:.2f} hPa")
+
+    res_light = get_pred("light", data)
+    print(f"MAE Licht: {res_light['mae']:.2f} Lux")
+
+    res_uv = get_pred("Uv", data)
+    print(f"MAE UV-Index: {res_uv['mae']:.2f}")
+
+    print(res_temp)
+
+    # Visualisierung nach Bedarf
+    visualize_forecast(res_temp)
+    visualize_forecast(res_hum)
+    visualize_forecast(res_pres)
+    visualize_forecast(res_light)
+    visualize_forecast(res_uv)
 
 
-#Model verbessern (letzte 3-5 Datensätze mitgeben, wird abwechselnd wärmer und kälter,  )
-#Testen, visulisieren
+
+
+
+
+
+
+
+#Random Forest und LSTM anaeinander anpassen
+
 #In Website einbauen
 
-##Schönes design, wenn am ende mehrere Möglichkeiten sind, grösserer Balken, ausschweifend(random_state entfernen)
-
-
-
-
-
-def testing(feature, timedelta=[1,4,8,24]):
-    prediction = get_prediction(feature, timedelta)
-    X_test = prediction[1]
-    y_test = prediction[2]
-    y_pred = [(k, sum(v)) for k, v in prediction[0].items()]
-    print(f"Predictions: {y_pred}")
-
-    mae = mean_absolute_error(y_true=y_test, y_pred=y_pred)
-    print(f"Mean average Error: {mae}")
-
-    fix, ax = plt.subplots(figsize=(10,5))
-
-    sns.scatterplot(x=y_test, y= y_test, ax=ax)
-    #sns.scatterplot(x=y_test, y=y_pred, ax=ax)
-    plt.show()
-
-#testing("Temp") Viele Fehler + model müsste weitergegeben werden, um X_test mit y_test und y_pred zu vergleichen.
