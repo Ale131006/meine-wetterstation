@@ -3,3 +3,4 @@ scikit-learn
 seaborn
 datetime
 pytz
+TensorFlow

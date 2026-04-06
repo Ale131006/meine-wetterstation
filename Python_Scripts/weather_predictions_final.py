@@ -13,6 +13,8 @@ from datetime import datetime, timedelta
 import json
 import pytz
 
+#C:\venvs\weatherproject\Scripts\Activate.ps1
+
 #Load the dataset into Python
 
 url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRPyrIYSN61zJY9_IUOwtNhRSF1l32Xo2UQjuDYGl3wIMwHjqPdXiIhvBsFhDu6wtyTnSN6qufe1kyA/pub?output=csv"
@@ -132,13 +134,6 @@ def create_x_axis(times):
     return future_times
 
 
-json_data = create_output_json([1])
-
-
-with open("Data/json_data.json", "w", encoding="utf-8") as f: 
-    json.dump(json_data, f, ensure_ascii=False, indent=2)
-
-
     
 #-----------------LSTM einfügen-----------------
 
@@ -166,7 +161,7 @@ if __name__ == "__main__":
     res_uv = get_pred("Uv", data)
     print(f"MAE UV-Index: {res_uv['mae']:.2f}")
 
-    print(res_temp)
+    print(res_temp["forecast"])
 
     # Visualisierung nach Bedarf
     visualize_forecast(res_temp)
@@ -176,6 +171,11 @@ if __name__ == "__main__":
     visualize_forecast(res_uv)
 
 
+json_data = create_output_json([1])
+
+
+with open("Data/json_data.json", "w", encoding="utf-8") as f: 
+    json.dump(json_data, f, ensure_ascii=False, indent=2)
 
 
 

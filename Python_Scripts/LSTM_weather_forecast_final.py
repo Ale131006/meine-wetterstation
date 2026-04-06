@@ -7,6 +7,8 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error
 
+#C:\venvs\weatherproject\Scripts\Activate.ps1
+
 # --- GLOBAL SETTINGS ---
 N_PAST = 96
 N_FUTURE = 24
