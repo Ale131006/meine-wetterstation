@@ -156,6 +156,8 @@ function convertUTCTextToCET(timestampStr) {
   return timestampStr.replace(/^"|"$/g, '').trim();
 }
 
+let isLive = false
+
 function updateLiveStatus() {
   if (!allData || allData.length === 0) return;
 
@@ -186,15 +188,19 @@ function updateLiveStatus() {
   const now = new Date();        // jetzt - auch lokal
   const diffMin = (now - latestDate) / 60000;  // in Minuten
 
+  
+
   const statusElement = document.getElementById('live-indicator');
   if (diffMin < 30) {
     statusElement.textContent = 'Live';
     statusElement.style.backgroundColor = "#d1fae5";
     statusElement.style.color = "#065f46";
+    isLive = true
   } else {
     statusElement.textContent = 'Offline';
     statusElement.style.backgroundColor = "#fdd0d0ff";
     statusElement.style.color = "#7f1d1d";
+    isLive = false
   }
 }
 
@@ -1370,316 +1376,299 @@ document.addEventListener('DOMContentLoaded', async ()=> {
 });
 
 
-async function load_forecast(){
-  await fetch("./Data/json_data.json").then(r=>r.json()).then(data =>{
-    forecast_data = data
-  })
-  return forecast_data
+async function load_forecast() {
+    const response = await fetch("./Data/json_data.json");
+    return await response.json();
 }
 
 let forecastModalChart = null;
 const forecastPreviewCharts = {};
-
-let forecastLabels;
-
-const forecastChartColors = {
-  Temperatur: 'rgba(234, 88, 12, 1)',
-  Luftfeuchtigkeit: 'rgba(37, 99, 235, 1)',
-  Luftdruck: 'rgba(124, 58, 237, 1)',
-  Beleuchtungsstärke: 'rgba(202, 138, 4, 1)',
-  'UV-Index': 'rgba(220, 38, 38, 1)',
-  Windgeschwindigkeit: 'rgba(22, 163, 74, 1)',
-  Windrichtung: 'rgba(159, 122, 234, 1)',
-  Regen: 'rgba(3, 105, 161, 1)'
-};
-
 let forecastDataMap;
 
-async function get_forecast_data(){
-  forecast_data = await load_forecast()
+const forecastChartColors = {
+    Temperatur: 'rgba(234, 88, 12, 1)',
+    Luftfeuchtigkeit: 'rgba(37, 99, 235, 1)',
+    Luftdruck: 'rgba(124, 58, 237, 1)',
+    Beleuchtungsstärke: 'rgba(202, 138, 4, 1)',
+    'UV-Index': 'rgba(220, 38, 38, 1)'
+};
 
-  let forecastLabels = []
+// --- 1. Korrektur der Datenverarbeitung (Rundung & Einheiten) ---
+async function get_forecast_data() {
+    const forecast_ensemble = await load_forecast();
+    const firstRun = forecast_ensemble[0];
+    const labels = firstRun[0].X;
 
-  forecastLabels = [...forecast_data[0].X]
+    const metricsMapping = [
+        { key: "Temperatur", unit: "°C", min: 0, max: 35, step: 5 },
+        { key: "Luftfeuchtigkeit", unit: "%", min: 0, max: 100, step: 20 },
+        { key: "Luftdruck", unit: "hPa", min: 990, max: 1040, step: 10 },
+        { key: "Beleuchtungsstärke", unit: "Lux", min: 0, max: 70000, step: 20000 },
+        { key: "UV-Index", unit: "", min: 0, max: 12, step: 2 }
+    ];
 
-  tempValues = Object.values(forecast_data[0].y[0]).map(v => parseFloat(v.replace("[", "").replace("]", "")))
-  humValues = Object.values(forecast_data[1].y[0]).map(v => parseFloat(v.replace("[", "").replace("]", "")))
-  presValues = Object.values(forecast_data[2].y[0]).map(v => parseFloat(v.replace("[", "").replace("]", ""))/100)
-  lightValues = Object.values(forecast_data[3].y[0]).map(v => parseFloat(v.replace("[", "").replace("]", "")))
-  uvValues = Object.values(forecast_data[4].y[0]).map(v => Math.round(parseFloat(v.replace("[", "").replace("]", ""))))
-  
-  presValues.forEach(value =>{
-      value = value/1000
-  })
+    forecastDataMap = {};
 
-  forecastDataMap = {
-  "Temperatur": {
-    labels: forecastLabels,
-    data: tempValues,
-    unit: "°C",
-    min: 0,
-    max: 28,
-    stepSize: 7,
-    type: "line"
-  },
-  "Luftfeuchtigkeit": {
-    labels: forecastLabels,
-    data: humValues,
-    unit: "%",
-    min: 0,
-    max: 100,
-    stepSize: 25,
-    type: "line"
-  },
-  "Luftdruck": {
-    labels: forecastLabels,
-    data: presValues,
-    unit: "hPa",
-    min: 1000,
-    max: 1030,
-    stepSize: 7,
-    type: "line"
-  },
-  "Beleuchtungsstärke": {
-    labels: forecastLabels,
-    data: lightValues,
-    unit: "Lux",
-    min: 0,
-    max: 80000,
-    stepSize: 20000,
-    type: "line"
-  }, 
-  "UV-Index": {
-    labels: forecastLabels,
-    data: uvValues,
-    unit: "",
-    min: 0,
-    max: 8,
-    stepSize: 2,
-    type: "line"
-  }
-  };
+    // Hilfsfunktion für physikalische Grenzen (Clamping)
+    const clampValue = (val, key) => {
+        let v = val;
+        if (key === "Luftdruck") v = v / 100;
+        if (key === "UV-Index") v = Math.round(v);
+        
+        // LUFTFEUCHTIGKEIT: 0 bis 100
+        if (key === "Luftfeuchtigkeit") v = Math.max(0, Math.min(100, v));
+        
+        // BELEUCHTUNGSSTÄRKE: Nie unter 0
+        if (key === "Beleuchtungsstärke") v = Math.max(0, v);
+        
+        return v;
+    };
+
+    metricsMapping.forEach((m, index) => {
+        // Alle Rohdaten für diesen Sensor holen
+        const allRunsRaw = forecast_ensemble.map(run => run[index].y[0]);
+
+        // 1. Mittelwert berechnen UND filtern
+        const meanData = labels.map((_, i) => {
+            const currentVals = allRunsRaw.map(r => r[i]);
+            const avg = currentVals.reduce((a, b) => a + b, 0) / currentVals.length;
+            
+            // Hier greift die Korrektur für die Prognose-Linie!
+            let finalVal = clampValue(avg, m.key);
+            return m.key === "UV-Index" ? Math.round(finalVal) : parseFloat(finalVal.toFixed(2));
+        });
+
+        // 2. Minimum berechnen UND filtern
+        const minData = labels.map((_, i) => {
+            const rawMin = Math.min(...allRunsRaw.map(r => r[i]));
+            return clampValue(rawMin, m.key);
+        });
+
+        // 3. Maximum berechnen UND filtern
+        const maxData = labels.map((_, i) => {
+            const rawMax = Math.max(...allRunsRaw.map(r => r[i]));
+            return clampValue(rawMax, m.key);
+        });
+
+        forecastDataMap[m.key] = {
+            labels: labels,
+            mean: meanData,
+            min: minData,
+            max: maxData,
+            unit: m.unit,
+            minY: m.min,
+            maxY: m.max,
+            stepSize: m.step
+        };
+    });
 }
 
+function buildForecastDatasets(metricName) {
+    const cfg = forecastDataMap[metricName];
+    const baseColor = forecastChartColors[metricName];
 
+    // Spezialfall: UV-Index (Nur die Hauptlinie, ohne Schatten)
+    if (metricName === "UV-Index") {
+        return [{
+            label: 'UV-Index (Prognose)',
+            data: cfg.mean, // Enthält jetzt nur Ganzzahlen
+            borderColor: baseColor,
+            backgroundColor: baseColor.replace('1)', '0.2)'),
+            borderWidth: 4,
+            pointRadius: 5,
+            pointBackgroundColor: "#fff",
+            fill: false,
+            tension: 0.1, // Fast gerade Linien für klare Stufen
+            zIndex: 10
+        }];
+    }
 
-function hexToRgba(hex, alpha) {
-  const cleaned = hex.replace("#", "");
-  const bigint = parseInt(cleaned, 16);
-  const r = (bigint >> 16) & 255;
-  const g = (bigint >> 8) & 255;
-  const b = bigint & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-function createForecastGradient(ctx, color, chartArea) {
-  const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-  gradient.addColorStop(0, hexToRgba(color, 0.22));
-  gradient.addColorStop(1, hexToRgba(color, 0.03));
-  return gradient;
+    // Standardfall für Temp, Hum, etc. (mit Fan-Chart/Schatten)
+    const areaColor = baseColor.replace('1)', '0.15)');
+    return [
+        {
+            label: 'Obere Grenze',
+            data: cfg.max,
+            borderColor: baseColor.replace('1)', '0.3)'),
+            borderDash: [5, 5],
+            borderWidth: 1,
+            pointRadius: 0,
+            fill: false,
+            tension: 0.3
+        },
+        {
+            label: 'Untere Grenze',
+            data: cfg.min,
+            borderColor: baseColor.replace('1)', '0.3)'),
+            borderDash: [5, 5],
+            borderWidth: 1,
+            backgroundColor: areaColor,
+            pointRadius: 0,
+            fill: '-1', 
+            tension: 0.3
+        },
+        {
+            label: metricName + ' (Prognose)',
+            data: cfg.mean,
+            borderColor: baseColor,
+            backgroundColor: '#fff',
+            borderWidth: 3,
+            pointRadius: 4,
+            fill: false,
+            tension: 0.3,
+            zIndex: 10
+        }
+    ];
 }
 
 function getForecastChartOptions(metricName, isModal = false) {
-  const cfg = forecastDataMap[metricName];
-
-  return {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: {
-      mode: "index",
-      intersect: false
-    },
-    plugins: {
-      legend: {
-        display: false
-      },
-      tooltip: {
-        mode: "index",
-        intersect: false,
-        callbacks: {
-          label: function(context) {
-            return `${metricName}: ${context.parsed.y}${cfg.unit}`;
+    const cfg = forecastDataMap[metricName];
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+            mode: 'index',
+            intersect: false
+        },
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(17, 24, 39, 0.9)',
+                padding: 12,
+                titleFont: { size: 14 },
+                bodyFont: { size: 13 },
+                callbacks: {
+                    // Hier zeigen wir alle 3 Werte beim Hovern an
+                    label: function(context) {
+                        const index = context.dataIndex;
+                        const label = context.dataset.label;
+                        const val = context.parsed.y;
+                        
+                        // Wir zeigen im Tooltip nur Infos, wenn wir über der Hauptlinie (Index 2) hovern
+                        // oder wir zeigen einfach alles an:
+                        return `${label}: ${val}${cfg.unit}`;
+                    }
+                }
+            }
+        },
+        scales: {
+            x: { 
+                grid: { 
+                    display: true, // Vertikale Linien an
+                    color: "rgba(0,0,0,0.1)", // Sichtbarkeit der vertikalen Linien
+                    drawOnChartArea: true 
+                },
+                ticks: { font: { size: isModal ? 14 : 11 } }
+            },
+            y: {
+              min: cfg.minY,
+              max: cfg.maxY,
+              ticks: {
+                  stepSize: cfg.stepSize,
+                  precision: 0, // Erlaubt KEINE Nachkommastellen bei der Achsenbeschriftung
+                  callback: (val) => val + cfg.unit
+              }
           }
         }
-      }
-    },
-    scales: {
-      x: {
-        title: {
-          display: false
-        },
-        grid: {
-          color: "rgba(0,0,0,0.08)",
-          lineWidth: 1
-        },
-        ticks: {
-          color: "#6b7280",
-          font: {
-            size: isModal ? 16 : 13
-          }
-        }
-      },
-      y: {
-        min: cfg.min,
-        max: cfg.max,
-        ticks: {
-          stepSize: cfg.stepSize,
-          color: "#6b7280",
-          font: {
-            size: isModal ? 16 : 13
-          },
-          callback: function(value) {
-            return `${value}${cfg.unit}`;
-          }
-        },
-        title: {
-          display: true,
-          text: `${metricName}${cfg.unit ? ` (${cfg.unit})` : ""}`,
-          color: "#6b7280",
-          font: {
-            size: isModal ? 16 : 13
-          }
-        },
-        grid: {
-          color: "rgba(0,0,0,0.08)",
-          lineWidth: 1
-        }
-      }
-    },
-    elements: {
-      line: {
-        tension: 0.3,
-        borderWidth: isModal ? 3 : 3
-      },
-      point: {
-        radius: isModal ? 5 : 4,
-        hoverRadius: isModal ? 6 : 5,
-        borderWidth: 2,
-        backgroundColor: "#ffffff"
-      }
-    }
-  };
+    };
 }
 
-function buildForecastDataset(metricName) {
-  const cfg = forecastDataMap[metricName];
-  const color = forecastChartColors[metricName];
-  const isBar = cfg.type === "bar";
-
-  return {
-    label: metricName,
-    data: cfg.data,
-    borderColor: color,
-    backgroundColor: isBar ? "rgba(234, 179, 8, 0.7)" : color,
-    fill: false,
-    spanGaps: true,
-    tension: 0.3,
-    pointRadius: isBar ? 0 : 5,
-    pointHoverRadius: isBar ? 0 : 6,
-    pointBorderWidth: isBar ? 0 : 2,
-    pointBackgroundColor: "#ffffff",
-    pointBorderColor: color,
-    borderWidth: isBar ? 0 : 3,
-    borderSkipped: false,
-    barPercentage: 0.72,
-    categoryPercentage: 0.8
-  };
-}
 
 function createForecastPreviewChart(canvasId, metricName) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-
-  const cfg = forecastDataMap[metricName];
-  const type = cfg.type;
-
-  const chart = new Chart(canvas, {
-    type,
-    data: {
-      labels: cfg.labels,
-      datasets: [buildForecastDataset(metricName)]
-    },
-    options: getForecastChartOptions(metricName, false)
-  });
-
-  forecastPreviewCharts[metricName] = chart;
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const chart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: forecastDataMap[metricName].labels,
+            datasets: buildForecastDatasets(metricName)
+        },
+        options: getForecastChartOptions(metricName, false)
+    });
+    forecastPreviewCharts[metricName] = chart;
 }
-
 
 function openForecastModal(metricName) {
     const modal = document.getElementById("forecastModal");
-    const title = document.getElementById("forecastModalTitle");
     const canvas = document.getElementById("forecastModalChart");
+    if (!modal || !canvas) return;
 
-    if (!modal || !title || !canvas) return;
+    if (forecastModalChart) forecastModalChart.destroy();
 
-    const cfg = forecastDataMap[metricName];
-    const type = cfg.type;
-
-    title.textContent = `${metricName} – Vorhersage`;
-
-    if (forecastModalChart) {
-      forecastModalChart.destroy();
-      forecastModalChart = null;
-    }
-
-   forecastModalChart = new Chart(canvas, {
-      type,
-      data: {
-        labels: cfg.labels,
-        datasets: [buildForecastDataset(metricName)]
-      },
-      options: getForecastChartOptions(metricName, true)
+    forecastModalChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: forecastDataMap[metricName].labels,
+            datasets: buildForecastDatasets(metricName)
+        },
+        options: getForecastChartOptions(metricName, true)
     });
 
     modal.classList.remove("hidden");
     document.body.style.overflow = "hidden";
-  }
+}
+
+// Restliche Funktionen (closeForecastModal, initForecastSection) bleiben identisch
+async function initForecastSection() {
+    // Daten laden
+    await get_forecast_data();
+    
+    // Preview Charts zeichnen
+    createForecastPreviewChart("forecastTempChart", "Temperatur");
+    createForecastPreviewChart("forecastHumidityChart", "Luftfeuchtigkeit");
+    createForecastPreviewChart("forecastPressureChart", "Luftdruck");
+    createForecastPreviewChart("forecastLightChart", "Beleuchtungsstärke");
+    createForecastPreviewChart("forecastUVChart", "UV-Index");
+
+    // --- KLICK-EVENT ZUM VERGRÖSSERN ---
+    // Wir suchen alle Karten, die ein "data-forecast-metric" Attribut haben
+    document.querySelectorAll(".forecast-card").forEach(card => {
+        card.style.cursor = "pointer"; // Hand-Cursor für bessere UX
+        card.onclick = () => {
+            const metric = card.getAttribute("data-forecast-metric");
+            if (metric) {
+                console.log("Öffne Modal für:", metric);
+                openForecastModal(metric);
+            }
+        };
+    });
+
+    // --- CLOSE EVENTS ---
+    const closeBtn = document.getElementById("forecastModalClose");
+    if (closeBtn) {
+        closeBtn.onclick = (e) => {
+            e.preventDefault();
+            closeForecastModal();
+        };
+    }
+
+    const backdrop = document.querySelector(".forecast-modal-backdrop");
+    if (backdrop) {
+        backdrop.onclick = closeForecastModal;
+    }
+}
+
+// --- 3. Zusätzlicher Tastatur-Support (Escape zum Schließen) ---
+document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+        closeForecastModal();
+    }
+});
+
 
 function closeForecastModal() {
     const modal = document.getElementById("forecastModal");
     if (!modal) return;
 
     modal.classList.add("hidden");
-    document.body.style.overflow = "";
+    document.body.style.overflow = ""; // Scrollen wieder erlauben
 
     if (forecastModalChart) {
-      forecastModalChart.destroy();
-      forecastModalChart = null;
+        forecastModalChart.destroy();
+        forecastModalChart = null;
     }
-  }
-
-async function initForecastSection() {
-  await get_forecast_data()
-  createForecastPreviewChart("forecastTempChart", "Temperatur");
-  createForecastPreviewChart("forecastHumidityChart", "Luftfeuchtigkeit");
-  createForecastPreviewChart("forecastPressureChart", "Luftdruck");
-  createForecastPreviewChart("forecastLightChart", "Beleuchtungsstärke");
-  createForecastPreviewChart("forecastUVChart", "UV-Index");
-
-  document.querySelectorAll(".forecast-card").forEach(card => {
-    card.addEventListener("click", () => {
-      const metric = card.dataset.forecastMetric;
-      openForecastModal(metric);
-    });
-  });
-
-  document
-    .getElementById("forecastModalClose")
-    ?.addEventListener("click", closeForecastModal);
-
-  document
-    .querySelector(".forecast-modal-backdrop")
-    ?.addEventListener("click", closeForecastModal);
-
-  document.addEventListener("keydown", e => {
-    if (e.key === "Escape") {
-      closeForecastModal();
-    }
-  });
-
-
 }
+
 
 document.addEventListener("DOMContentLoaded", initForecastSection);
 
@@ -1707,7 +1696,4 @@ document.addEventListener("DOMContentLoaded", initForecastSection);
 // TODO: Bei windgeschwindigkeit muss die maxgeschwindigkeit erhöht werden bei hohen windgeschwindigkeiten
 
 
-//TODO: Python modell verbessern (Trend mitgeben)
-//TODO: Python modell effizienter machen
-//TODO: workflow richtig setzen
 //TODO: Skalen dynMAx, dynMin anapassen

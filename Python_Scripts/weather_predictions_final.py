@@ -1,172 +1,165 @@
-import pickle
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, mean_absolute_error
-import math
-import seaborn as sns
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+import math
 import os
-from datetime import datetime, timedelta
 import json
 import pytz
+from datetime import datetime, timedelta
+import matplotlib.pyplot as plt
 
-#Load the dataset into Python
+# Importiere deine LSTM-Funktionen
+from LSTM_weather_forecast_final import get_pred, load_and_clean_data
 
-url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRPyrIYSN61zJY9_IUOwtNhRSF1l32Xo2UQjuDYGl3wIMwHjqPdXiIhvBsFhDu6wtyTnSN6qufe1kyA/pub?output=csv"
-dropcolumns = ["Timestamp", 'Altitude', 'maxWindSpeed', 'windspeed', 'Latitude', 'Longitude','Ort','winddirection', 'Monat', 'Tag','Stunde']
-df = pd.read_csv(url)
+# --- KONFIGURATION ---
+URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRPyrIYSN61zJY9_IUOwtNhRSF1l32Xo2UQjuDYGl3wIMwHjqPdXiIhvBsFhDu6wtyTnSN6qufe1kyA/pub?output=csv"
+DROP_COLS = ["Timestamp", 'Altitude', 'maxWindSpeed', 'windspeed', 'Latitude', 'Longitude','Ort','winddirection', 'Monat', 'Tag','Stunde']
+TARGETS = ["Temp", "Hum", "pres", "light", "Uv"]
+N_ENSEMBLE = 5  # Höhere Zahl gibt schönere Flächen
 
-df.to_csv("Data/weather_data.csv", index=False)
+# --- RF LOGIK (bleibt gleich) ---
+def prepare_rf_data(url):
+    df = pd.read_csv(url).dropna()
+    df.to_csv("Data/weather_data.csv", index=False)
+    df['Timestamp'] = pd.to_datetime(df['Timestamp'], format='%d.%m.%Y %H:%M:%S')
+    df = df.set_index('Timestamp')
+    df_res = df.resample('15min').mean(numeric_only=True)
+    df_text = df[['rain', 'Ort', 'winddirection']].resample('15min').first()
+    df = df_res.join(df_text).reset_index().dropna()
+    df['Jahr'] = df['Timestamp'].dt.year
+    df["monat_sin"] = np.sin(2*math.pi * df["Timestamp"].dt.month/12)
+    df["monat_cos"] = np.cos(2*math.pi * df["Timestamp"].dt.month/12)
+    df["hour_sin"] = np.sin(2*math.pi * df["Timestamp"].dt.hour/24)
+    df["hour_cos"] = np.cos(2*math.pi * df["Timestamp"].dt.hour/24)
+    le = LabelEncoder()
+    df["rain"] = le.fit_transform(df["rain"])
+    X = df[['Temp', 'Hum', 'pres', 'light', 'Uv', 'rain', 'Jahr','monat_sin','monat_cos', 'hour_sin', 'hour_cos']]
+    return df, X
 
-df = df.dropna()
+def get_rf_prediction(df, X_features, target, timedelta_list):
+    results = {}
+    for delta in timedelta_list:
+        shift = 4 * delta
+        y = df[target].shift(-shift).iloc[:-shift]
+        X_trimmed = X_features.iloc[:-shift]
+        model = RandomForestRegressor(n_estimators=500, max_features=5, random_state=4)
+        model.fit(X_trimmed, y)
+        current_features = df.iloc[[-1]].drop(columns=DROP_COLS, errors='ignore')[X_features.columns]
+        pred = model.predict(current_features)[0]
+        results[str(delta)] = float(pred)
+    return results
 
-#clean Data for quarter hour average
+def get_rf_base_cache(df, X_features):
+    print("\n--- [RF] Berechne stabilen Basis-Cache (Stunde 1-3) ---")
+    cache = {}
+    for target in TARGETS:
+        cache[target] = get_rf_prediction(df, X_features, target, [1, 2, 3])
+    return cache
 
-df['Timestamp'] = pd.to_datetime(df['Timestamp'], format='%d.%m.%Y %H:%M:%S')
+# --- NEU: STATISTIK & VISUALISIERUNG ---
 
-df = df.set_index('Timestamp')
-
-# Numerische Spalten mitteln
-numeric_cols = ['Temp', 'Hum', 'pres']  # deine numerischen Spalten
-df_numeric = df.resample('15min').mean(numeric_only=True)
-
-# Text-/Kategorie-Spalten: einfach ersten Wert im Fenster nehmen
-text_cols = ['rain', 'Ort', 'winddirection']  # deine Text-Spalten
-df_text = df[text_cols].resample('15min').first()
-
-# Zusammenführen
-df = df_numeric.join(df_text)
-
-df = df.reset_index()
-df = df.dropna()
-
-
-#Prepare the dataset for modeling  (Zeit und Monate als Sinus/Cosinus darstellen. Monate als eigene Spalte)
-
-df['Jahr']   = df['Timestamp'].dt.year
-df['Monat']  = df['Timestamp'].dt.month
-df['Tag']    = df['Timestamp'].dt.day
-df['Stunde'] = df['Timestamp'].dt.hour
-
-df["monat_sin"] = np.sin(2*math.pi * df["Timestamp"].dt.month/12)
-df["monat_cos"] = np.cos(2*math.pi * df["Timestamp"].dt.month/12)
-
-df["hour_sin"] = np.sin(2*math.pi * df["Timestamp"].dt.hour/24)
-df["hour_cos"] = np.cos(2*math.pi * df["Timestamp"].dt.hour/24)
-
-le = LabelEncoder()
-df["rain"] = le.fit_transform(df["rain"])
-
-
-X = df[['Temp', 'Hum', 'pres', 'light', 'Uv', 'rain', 'Jahr','monat_sin','monat_cos', 'hour_sin', 'hour_cos']]
-
-#Aussortiere features ("Timestamp", 'Altitude', 'maxWindSpeed', 'windspeed', 'Latitude', 'Longitude','Ort','winddirection', 'Monat', 'Tag','Stunde',)
-
-def prepare_training_data(feature, timedelta):
-    shift = 4*timedelta
-    y = df[feature].shift(-shift).iloc[:-shift]
-    X_trimmed = X.iloc[:-shift]
-    X_train, X_test, y_train, y_test = train_test_split(X_trimmed,y, test_size=0.05, random_state=4)
-
-    return X_train, X_test, y_train, y_test
-
-def train_model(X_train, y_train):
-    model = RandomForestRegressor(n_estimators=1500, max_features=5, oob_score=True, random_state=4) #max_samples = 60 #n_estimators = 2000, max_features =6
-    model.fit(X_train, y_train)
-    return model
-
-def get_prediction(feature, timedelta=[1,4,8,24]):
-    predictions = {}
-    for delta in timedelta:
-        X_train, X_test, y_train, y_test = prepare_training_data(feature, delta)
-        model = train_model(X_train, y_train)
-        print(f"Model trained for {feature} with timedelta {delta} hours.")
-
-        current = df.iloc[[-1]]
-        current = current.drop(columns=dropcolumns)
-
-        prediction = model.predict(current)
-
-        predictions[f"{delta}"] = f"{prediction}"
-
-    return predictions, X_test, y_test
-
-#temp_pred = get_prediction("Temp", [1,4])[0]
-#print(temp_pred)
-
-def get_all_predictions(timedelta=[1,4,8,24]):
-    pred_temp = get_prediction("Temp", timedelta)[0]
-    pred_hum = get_prediction("Hum", timedelta)[0]
-    pred_pres = get_prediction("pres", timedelta)[0]
-    pred_light = get_prediction("light", timedelta)[0]
-    pred_uv = get_prediction("Uv", timedelta)[0]
-    return [pred_temp, pred_hum, pred_pres, pred_light, pred_uv]
-
-def create_output_json(timedelta=[1,4,8,24]):
-    predictions = get_all_predictions(timedelta)
-    weather_data = []                   #y
-
-    for prediction in predictions:
-        weather_data.append([prediction])
-
-    x = create_x_axis(timedelta)
-
-    output_json = []
+def calculate_stats(ensemble_data, target_name):
+    """Extrahiert alle Kurven für einen Sensor und berechnet Min, Max, Mean."""
+    all_y = []
+    times = []
     
-    for data in weather_data:
-        output_json.append({"X": x, "y": data})
+    for run in ensemble_data:
+        sensor_data = next((item for item in run if item["target"] == target_name), None)
+        if sensor_data:
+            all_y.append(sensor_data["y"][0])
+            times = sensor_data["X"]
+            
+    all_y = np.array(all_y)
+    return {
+        "times": times,
+        "min": np.min(all_y, axis=0).tolist(),
+        "max": np.max(all_y, axis=0).tolist(),
+        "mean": np.mean(all_y, axis=0).tolist()
+    }
 
+def visualize_ensemble(ensemble_data, sensor_target="Temp"):
+    """Erstellt ein Profi-Chart mit Farbbereich (Fan Chart)."""
+    stats = calculate_stats(ensemble_data, sensor_target)
+    
+    plt.figure(figsize=(12, 6))
+    
+    # 1. Den Bereich (Schatten) zeichnen
+    plt.fill_between(stats["times"], stats["min"], stats["max"], 
+                     color='orange', alpha=0.3, label="Unsicherheitsbereich (Min/Max)")
+    
+    # 2. Die einzelnen Spaghetti-Kurven (sehr dezent)
+    for run in ensemble_data:
+        sensor_data = next((item for item in run if item["target"] == sensor_target), None)
+        plt.plot(stats["times"], sensor_data["y"][0], color='gray', alpha=0.1, linewidth=0.8)
+
+    # 3. Den Mittelwert (fett gestrichelt)
+    plt.plot(stats["times"], stats["mean"], color='darkorange', 
+             linestyle='--', linewidth=2.5, label="Mittelwert (Prognose)")
+    
+    plt.title(f"24h Fan Chart Prognose: {sensor_target} (n={N_ENSEMBLE} Sets)")
+    plt.xticks(rotation=45)
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+def LSTM_make_json_output(predictions):
+    output_json = []
+    for pred_dict in predictions:
+        x_axis = [t.split(" ")[-1] for t in pred_dict["times"]]
+        output_json.append({
+            "target": pred_dict["target"],
+            "X": x_axis, 
+            "y": [pred_dict["forecast"]],
+            "mae": pred_dict["mae"]
+        })
     return output_json
 
-def create_x_axis(times):
-    timezone = pytz.timezone("Europe/Berlin")
-    now = datetime.now(timezone)
-    next_hour = now + timedelta(hours=0)  #veränderbar/anpasse /TODO
-    next_hour = next_hour.replace(minute=0, second=0, microsecond=0)
+# --- HAUPTPROGRAMM ---
 
-    future_times = [(next_hour + timedelta(hours=i)).strftime("%H:00") for i in times]
+if __name__ == "__main__":
+    df_rf, X_rf = prepare_rf_data(URL)
+    data_lstm = load_and_clean_data(URL)
+    rf_cache = get_rf_base_cache(df_rf, X_rf)
+    
+    all_runs_final = []
+    
+    for n in range(N_ENSEMBLE):
+        print(f"Durchlauf {n+1}/{N_ENSEMBLE}...")
+        current_lstm_results = []
+        for target in TARGETS:
+            res = get_pred(target, data_lstm)
+            for h in [1, 2, 3]:
+                idx = h - 1
+                res["forecast"][idx] = round((rf_cache[target][str(h)] + res["forecast"][idx]) / 2, 2)
+            current_lstm_results.append(res)
+        
+        all_runs_final.append(LSTM_make_json_output(current_lstm_results))
 
-    return future_times
+    # Speichern
+    os.makedirs("Data", exist_ok=True)
+    with open("Data/json_data.json", "w", encoding="utf-8") as f:
+        json.dump(all_runs_final, f, ensure_ascii=False, indent=2)
+
+    # Visualisieren
+    #visualize_ensemble(all_runs_final, sensor_target="Temp")
+    #visualize_ensemble(all_runs_final, sensor_target="Hum")
+
+    print(f"\n[FERTIG] Datei unter Data/json_data.json gespeichert.")
 
 
-json_data = create_output_json([1,2, 3, 4, 5, 6 , 7, 8])
+
+"""
+pred_temp = get_prediction("Temp", [1,2,3,4])[0]
+
+#json_data = create_output_json([1])
+print(pred_temp)
+
 
 
 with open("Data/json_data.json", "w", encoding="utf-8") as f: 
     json.dump(json_data, f, ensure_ascii=False, indent=2)
+"""
 
-
-    
-    
-
-
-#Model verbessern (letzte 3-5 Datensätze mitgeben, wird abwechselnd wärmer und kälter,  )
-#Testen, visulisieren
-#In Website einbauen
-
-##Schönes design, wenn am ende mehrere Möglichkeiten sind, grösserer Balken, ausschweifend(random_state entfernen)
-
-
-
-
-
-def testing(feature, timedelta=[1,4,8,24]):
-    prediction = get_prediction(feature, timedelta)
-    X_test = prediction[1]
-    y_test = prediction[2]
-    y_pred = [(k, sum(v)) for k, v in prediction[0].items()]
-    print(f"Predictions: {y_pred}")
-
-    mae = mean_absolute_error(y_true=y_test, y_pred=y_pred)
-    print(f"Mean average Error: {mae}")
-
-    fix, ax = plt.subplots(figsize=(10,5))
-
-    sns.scatterplot(x=y_test, y= y_test, ax=ax)
-    #sns.scatterplot(x=y_test, y=y_pred, ax=ax)
-    plt.show()
-
-#testing("Temp") Viele Fehler + model müsste weitergegeben werden, um X_test mit y_test und y_pred zu vergleichen.
