@@ -1694,6 +1694,5 @@ document.addEventListener("DOMContentLoaded", initForecastSection);
 
 // TODO: bei livedtabelle ist der Ort noch nicht eingetragen. 
 // TODO: Bei windgeschwindigkeit muss die maxgeschwindigkeit erhöht werden bei hohen windgeschwindigkeiten
-
-
-//TODO: Skalen dynMAx, dynMin anapassen
+// TODO: Skalen dynMAx, dynMin anapassen
+// TODO: Keine Wettervorhersage wenn die Station offline ist, kann für Verwirrung sorgen
